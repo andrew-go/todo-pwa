@@ -18,10 +18,10 @@
     --text: #1c1c28;
     --muted: #8a8aa0;
     --accent: #4f46e5;
-    --accent-soft: #e8e7fb;
     --border: #e4e4ee;
     --danger: #e5484d;
     --ok: #16a34a;
+    --arch: #d97706;
   }
   @media (prefers-color-scheme: dark) {
     :root {
@@ -29,7 +29,6 @@
       --card: #1c1c28;
       --text: #ececf4;
       --muted: #7c7c93;
-      --accent-soft: #2a2870;
       --border: #2c2c3c;
     }
   }
@@ -58,8 +57,9 @@
   .ring text { fill: var(--text); font-size: 15px; font-weight: 600; }
 
   .seg { display: flex; gap: 4px; padding: 4px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 16px; }
-  .seg button { flex: 1; padding: 8px; border: 0; border-radius: 9px; background: none; color: var(--muted); font-weight: 500; }
+  .seg button[data-view] { flex: 1; padding: 8px 4px; border: 0; border-radius: 9px; background: none; color: var(--muted); font-weight: 500; white-space: nowrap; }
   .seg button.active { background: var(--accent); color: #fff; }
+  .seg .fs { flex: none; width: 40px; border: 0; border-radius: 9px; background: none; color: var(--muted); display: grid; place-items: center; padding: 0; }
 
   form { display: flex; gap: 8px; margin-bottom: 16px; }
   input[type="text"] {
@@ -83,7 +83,7 @@
     padding: 0 18px; color: #fff; font-weight: 600; font-size: 14px;
   }
   li[data-dir="right"] .bg { background: var(--ok); }
-  li[data-dir="left"] .bg { background: var(--danger); }
+  li[data-dir="left"] .bg { background: var(--arch); }
   li[data-dir="right"] .bg .r, li[data-dir="left"] .bg .l { visibility: hidden; }
   .row {
     position: relative; display: flex; align-items: center; gap: 12px;
@@ -103,7 +103,20 @@
   .empty, .hint { text-align: center; color: var(--muted); font-size: 14px; }
   .empty { padding: 32px 0; font-size: 16px; }
   .hint { margin: 14px 0 0; }
-  .clear { display: block; margin: 8px auto 0; border: 0; background: none; color: var(--danger); font-size: 14px; }
+  .link { display: block; margin: 8px auto 0; border: 0; background: none; color: var(--accent); font-size: 14px; padding: 6px; }
+  .link.danger { color: var(--danger); }
+
+  .donehead {
+    width: 100%; display: flex; justify-content: space-between; align-items: center;
+    margin: 16px 0 8px; padding: 10px 4px; border: 0; background: none; color: var(--muted); font-weight: 500;
+  }
+
+  .arow { display: block; }
+  .arow .text { display: block; margin-bottom: 10px; }
+  .abtns { display: flex; gap: 8px; }
+  .abtns button { flex: 1; padding: 9px; border-radius: 10px; border: 1px solid var(--border); background: var(--card); font-size: 14px; }
+  .abtns .del { color: var(--danger); border-color: var(--danger); }
+  .arow { margin-bottom: 8px; padding: 14px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; }
 
   .focus { display: flex; flex-direction: column; min-height: 60dvh; }
   .fcount { margin: 0; color: var(--muted); font-size: 14px; }
@@ -137,6 +150,10 @@
   <div class="seg" id="seg">
     <button data-view="list" class="active">Список</button>
     <button data-view="focus">Фокус</button>
+    <button data-view="archive" id="segArch">Архів</button>
+    <button class="fs" id="fs" aria-label="На весь екран" hidden>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path id="fsIcon" d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+    </button>
   </div>
 
   <section id="listView">
@@ -145,9 +162,16 @@
       <button class="add" type="submit">Додати</button>
     </form>
     <ul id="list"></ul>
-    <p class="empty" id="empty" hidden>Поки що порожньо — додайте першу задачу</p>
-    <p class="hint" id="hint" hidden>Свайп вправо — готово, вліво — видалити</p>
-    <button class="clear" id="clear" hidden>Очистити виконані</button>
+    <p class="empty" id="empty" hidden></p>
+    <p class="hint" id="hint" hidden>Свайп вправо — готово, вліво — в архів</p>
+
+    <div id="doneBox" hidden>
+      <button class="donehead" id="donehead"><span id="donetitle"></span><span id="donearrow">▾</span></button>
+      <div id="donebody" hidden>
+        <ul id="doneList"></ul>
+        <button class="link" id="archiveDone">Перенести виконані в архів</button>
+      </div>
+    </div>
   </section>
 
   <section class="focus" id="focusView" hidden>
@@ -161,10 +185,18 @@
       <button class="fbtn ghost" id="flater">Пізніше</button>
     </div>
   </section>
+
+  <section id="archView" hidden>
+    <p class="hint" style="margin:0 0 14px">Тут лежать задачі, які ви прибрали зі списку. Їх можна повернути або видалити назавжди.</p>
+    <ul id="archList"></ul>
+    <p class="empty" id="archEmpty" hidden>Архів порожній</p>
+    <button class="link danger" id="archClear" hidden>Видалити все назавжди</button>
+  </section>
 </main>
 
 <script>
   const KEY = 'todo.items.v1';
+  const KEY_DONE = 'todo.showDone';
   const SWIPE = 90;
   const CIRC = 2 * Math.PI * 26;
   const $ = (id) => document.getElementById(id);
@@ -172,6 +204,7 @@
   let items = load();
   let view = 'list';
   let justAdded = null;
+  let showDone = loadFlag(KEY_DONE);
 
   function load() {
     try { return JSON.parse(localStorage.getItem(KEY)) || []; }
@@ -180,7 +213,17 @@
   function save() {
     try { localStorage.setItem(KEY, JSON.stringify(items)); } catch {}
   }
-  const active = () => items.filter((t) => !t.done);
+  function loadFlag(k) {
+    try { return localStorage.getItem(k) === '1'; } catch { return false; }
+  }
+  function saveFlag(k, v) {
+    try { localStorage.setItem(k, v ? '1' : '0'); } catch {}
+  }
+
+  const live = () => items.filter((t) => !t.archived);
+  const active = () => live().filter((t) => !t.done);
+  const finished = () => live().filter((t) => t.done);
+  const archived = () => items.filter((t) => t.archived).sort((a, b) => (b.archivedAt || 0) - (a.archivedAt || 0));
 
   function buzz(ms) { if (navigator.vibrate) navigator.vibrate(ms); }
 
@@ -215,12 +258,12 @@
     render();
   }
 
-  function remove(t, li, row) {
+  function toArchive(t, li, row) {
     buzz(10);
     row.style.transform = 'translateX(-110%)';
     li.style.height = li.offsetHeight + 'px';
     setTimeout(() => li.classList.add('collapse'), 120);
-    setTimeout(() => { items = items.filter((x) => x !== t); save(); render(); }, 360);
+    setTimeout(() => { t.archived = true; t.archivedAt = Date.now(); save(); render(); }, 360);
   }
 
   function attachSwipe(li, row, t) {
@@ -252,7 +295,7 @@
     const end = (e) => {
       if (e.pointerId !== id) return;
       const wasDragging = dragging, d = dx;
-      if (wasDragging && d <= -SWIPE) { remove(t, li, row); id = null; return; }
+      if (wasDragging && d <= -SWIPE) { toArchive(t, li, row); id = null; return; }
       reset();
       if (wasDragging && d >= SWIPE) complete(t, e.clientX, e.clientY);
     };
@@ -260,70 +303,94 @@
     row.addEventListener('pointercancel', (e) => { if (e.pointerId === id) reset(); });
   }
 
+  function makeRow(t) {
+    const li = document.createElement('li');
+    li.className = 'swipe' + (t.id === justAdded ? ' enter' : '');
+
+    const bg = document.createElement('div');
+    bg.className = 'bg';
+    const l = document.createElement('span');
+    l.className = 'l';
+    l.textContent = t.done ? '↺ Повернути' : '✓ Готово';
+    const r = document.createElement('span');
+    r.className = 'r';
+    r.textContent = 'В архів';
+    bg.append(l, r);
+
+    const row = document.createElement('div');
+    row.className = 'row' + (t.done ? ' done' : '');
+
+    const check = document.createElement('button');
+    check.className = 'check';
+    check.setAttribute('aria-label', t.done ? 'Повернути до активних' : 'Позначити виконаною');
+    check.textContent = t.done ? '✓' : '';
+    check.onclick = (e) => complete(t, e.clientX, e.clientY);
+
+    const text = document.createElement('span');
+    text.className = 'text';
+    text.textContent = t.text;
+
+    row.append(check, text);
+    li.append(bg, row);
+    attachSwipe(li, row, t);
+    return li;
+  }
+
   function renderHeader() {
-    const done = items.length - active().length;
-    const ratio = items.length ? done / items.length : 0;
+    const all = live();
+    const done = finished().length;
+    const ratio = all.length ? done / all.length : 0;
     $('bar').style.strokeDasharray = CIRC;
     $('bar').style.strokeDashoffset = CIRC * (1 - ratio);
     $('pct').textContent = Math.round(ratio * 100) + '%';
-    $('sub').textContent = items.length ? `${done} з ${items.length} виконано` : 'Задач ще немає';
+    $('sub').textContent = all.length ? `${done} з ${all.length} виконано` : 'Задач ще немає';
     $('date').textContent = new Date().toLocaleDateString('uk-UA', { weekday: 'long', day: 'numeric', month: 'long' });
+    const n = archived().length;
+    $('segArch').textContent = n ? `Архів · ${n}` : 'Архів';
   }
 
   function renderList() {
     const list = $('list');
     list.textContent = '';
-    for (const t of items) {
-      const li = document.createElement('li');
-      li.className = 'swipe' + (t.id === justAdded ? ' enter' : '');
-
-      const bg = document.createElement('div');
-      bg.className = 'bg';
-      bg.innerHTML = '<span class="l">✓ Готово</span><span class="r">Видалити ✕</span>';
-
-      const row = document.createElement('div');
-      row.className = 'row' + (t.done ? ' done' : '');
-
-      const check = document.createElement('button');
-      check.className = 'check';
-      check.setAttribute('aria-label', 'Позначити виконаною');
-      check.textContent = t.done ? '✓' : '';
-      check.onclick = (e) => complete(t, e.clientX, e.clientY);
-
-      const text = document.createElement('span');
-      text.className = 'text';
-      text.textContent = t.text;
-
-      row.append(check, text);
-      li.append(bg, row);
-      list.append(li);
-      attachSwipe(li, row, t);
-    }
+    for (const t of active()) list.append(makeRow(t));
     justAdded = null;
-    $('empty').hidden = items.length > 0;
-    $('hint').hidden = items.length === 0;
-    $('clear').hidden = !items.some((t) => t.done);
+
+    const doneList = $('doneList');
+    doneList.textContent = '';
+    const fin = finished();
+    for (const t of fin) doneList.append(makeRow(t));
+    $('doneBox').hidden = fin.length === 0;
+    $('donetitle').textContent = `Виконані (${fin.length})`;
+    $('donearrow').textContent = showDone ? '▴' : '▾';
+    $('donebody').hidden = !showDone;
+
+    const empty = $('empty');
+    const all = live().length;
+    empty.hidden = active().length > 0;
+    empty.textContent = all === 0 ? 'Поки що порожньо — додайте першу задачу' : 'Усе зроблено — так тримати!';
+    $('hint').hidden = all === 0;
   }
 
   let lastFocusId = null;
   function renderFocus() {
     const todo = active();
     const fcard = $('fcard');
-    const done = items.length - todo.length;
-    $('fbar').style.width = (items.length ? (done / items.length) * 100 : 0) + '%';
+    const total = live().length;
+    const done = total - todo.length;
+    $('fbar').style.width = (total ? (done / total) * 100 : 0) + '%';
     fcard.textContent = '';
     fcard.className = 'fcard';
 
     if (!todo.length) {
-      $('fcount').textContent = items.length ? 'Усе зроблено' : 'Задач ще немає';
+      $('fcount').textContent = total ? 'Усе зроблено' : 'Задач ще немає';
       $('factions').hidden = true;
       const box = document.createElement('div');
       box.className = 'fall';
       const big = document.createElement('div');
       big.className = 'big';
-      big.textContent = items.length ? '✓' : '＋';
+      big.textContent = total ? '✓' : '＋';
       const p = document.createElement('p');
-      p.textContent = items.length ? 'Чудова робота! Список порожній.' : 'Додайте задачі у вкладці «Список».';
+      p.textContent = total ? 'Чудова робота! Список порожній.' : 'Додайте задачі у вкладці «Список».';
       box.append(big, p);
       fcard.append(box);
       lastFocusId = null;
@@ -342,14 +409,54 @@
     lastFocusId = t.id;
   }
 
+  function renderArchive() {
+    const list = $('archList');
+    list.textContent = '';
+    const arch = archived();
+    for (const t of arch) {
+      const li = document.createElement('li');
+      li.className = 'arow' + (t.done ? ' done' : '');
+
+      const text = document.createElement('span');
+      text.className = 'text';
+      text.textContent = t.text;
+
+      const btns = document.createElement('div');
+      btns.className = 'abtns';
+
+      const back = document.createElement('button');
+      back.textContent = 'Повернути';
+      back.onclick = () => { t.archived = false; delete t.archivedAt; save(); render(); };
+
+      const del = document.createElement('button');
+      del.className = 'del';
+      del.textContent = 'Видалити назавжди';
+      del.onclick = () => {
+        if (!confirm('Видалити назавжди? Цю дію не можна скасувати.')) return;
+        items = items.filter((x) => x !== t);
+        save();
+        render();
+      };
+
+      btns.append(back, del);
+      li.append(text, btns);
+      list.append(li);
+    }
+    $('archEmpty').hidden = arch.length > 0;
+    $('archClear').hidden = arch.length === 0;
+  }
+
   function render() {
     renderHeader();
     $('listView').hidden = view !== 'list';
     $('focusView').hidden = view !== 'focus';
-    for (const b of document.querySelectorAll('#seg button')) {
+    $('archView').hidden = view !== 'archive';
+    for (const b of document.querySelectorAll('#seg button[data-view]')) {
       b.classList.toggle('active', b.dataset.view === view);
     }
-    if (view === 'list') renderList(); else renderFocus();
+    if (view === 'list') renderList();
+    else if (view === 'focus') renderFocus();
+    else renderArchive();
   }
 
   $('form').addEventListener('submit', (e) => {
@@ -365,11 +472,25 @@
   });
 
   $('seg').addEventListener('click', (e) => {
-    const v = e.target.dataset.view;
+    const v = e.target.closest('button[data-view]')?.dataset.view;
     if (v) { view = v; lastFocusId = null; render(); }
   });
 
-  $('clear').onclick = () => { items = items.filter((t) => !t.done); save(); render(); };
+  $('donehead').onclick = () => { showDone = !showDone; saveFlag(KEY_DONE, showDone); render(); };
+
+  $('archiveDone').onclick = () => {
+    const now = Date.now();
+    for (const t of finished()) { t.archived = true; t.archivedAt = now; }
+    save();
+    render();
+  };
+
+  $('archClear').onclick = () => {
+    if (!confirm('Видалити весь архів назавжди? Цю дію не можна скасувати.')) return;
+    items = items.filter((t) => !t.archived);
+    save();
+    render();
+  };
 
   $('fdone').onclick = (e) => {
     const t = active()[0];
@@ -382,6 +503,22 @@
     save();
     render();
   };
+
+  const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+  if (document.fullscreenEnabled && !standalone) {
+    const ENTER = 'M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5';
+    const EXIT = 'M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5';
+    $('fs').hidden = false;
+    $('fs').onclick = () => {
+      if (document.fullscreenElement) document.exitFullscreen();
+      else document.documentElement.requestFullscreen({ navigationUI: 'hide' }).catch(() => {});
+    };
+    document.addEventListener('fullscreenchange', () => {
+      const on = !!document.fullscreenElement;
+      $('fsIcon').setAttribute('d', on ? EXIT : ENTER);
+      $('fs').setAttribute('aria-label', on ? 'Вийти з повного екрана' : 'На весь екран');
+    });
+  }
 
   render();
 
