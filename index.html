@@ -11,6 +11,32 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="TODO">
+<script>
+  const THEMES = [
+    { id: 'indigo', name: 'Індиго', c: '#4f46e5' },
+    { id: 'ocean', name: 'Океан', c: '#0284c7' },
+    { id: 'forest', name: 'Ліс', c: '#059669' },
+    { id: 'sunset', name: 'Захід', c: '#ea580c' },
+    { id: 'rose', name: 'Троянда', c: '#db2777' },
+    { id: 'graphite', name: 'Графіт', c: '#64748b' },
+  ];
+  const SETTINGS_KEY = 'todo.settings';
+  function readSettings() {
+    const d = { theme: 'indigo', mode: 'auto' };
+    try { return { ...d, ...JSON.parse(localStorage.getItem(SETTINGS_KEY)) }; }
+    catch { return d; }
+  }
+  function applySettings(s) {
+    const t = THEMES.find((x) => x.id === s.theme) || THEMES[0];
+    const root = document.documentElement;
+    root.style.setProperty('--accent', t.c);
+    if (s.mode === 'light' || s.mode === 'dark') root.dataset.mode = s.mode;
+    else root.removeAttribute('data-mode');
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.content = t.c;
+  }
+  applySettings(readSettings());
+</script>
 <style>
   :root {
     --bg: #f5f5f9;
@@ -24,13 +50,22 @@
     --arch: #d97706;
   }
   @media (prefers-color-scheme: dark) {
-    :root {
+    :root:not([data-mode="light"]) {
+      color-scheme: dark;
       --bg: #12121a;
       --card: #1c1c28;
       --text: #ececf4;
       --muted: #7c7c93;
       --border: #2c2c3c;
     }
+  }
+  :root[data-mode="dark"] {
+    color-scheme: dark;
+    --bg: #12121a;
+    --card: #1c1c28;
+    --text: #ececf4;
+    --muted: #7c7c93;
+    --border: #2c2c3c;
   }
   [hidden] { display: none !important; }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -61,9 +96,31 @@
   .ring .track { stroke: var(--border); }
   .ring .bar { stroke: var(--accent); transition: stroke-dashoffset .5s ease; }
   .ring text { fill: var(--text); font-size: 15px; font-weight: 600; }
+  .hright { display: flex; align-items: center; gap: 10px; }
+  .gear {
+    width: 40px; height: 40px; padding: 0; display: grid; place-items: center;
+    border: 1px solid var(--border); border-radius: 12px; background: var(--card); color: var(--muted);
+  }
+
+  dialog {
+    margin: auto auto 0; width: 100%; max-width: 560px; padding: 0; border: 0;
+    border-radius: 20px 20px 0 0; background: var(--card); color: var(--text);
+  }
+  dialog::backdrop { background: rgba(0, 0, 0, .5); }
+  .sheet { padding: 20px 16px calc(16px + env(safe-area-inset-bottom)); }
+  .sheet h2 { margin: 0 0 4px; font-size: 20px; }
+  .slabel { margin: 16px 0 8px; color: var(--muted); font-size: 13px; }
+  .swatches { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .sw {
+    display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 4px;
+    border: 1px solid var(--border); border-radius: 12px; background: var(--bg); font-size: 13px;
+  }
+  .sw.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .sw .dot { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-weight: 700; }
+  .sheet .seg { background: var(--bg); margin-bottom: 0; }
 
   .seg { display: flex; gap: 4px; padding: 4px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 16px; }
-  .seg button[data-view] { flex: 1; padding: 8px 4px; border: 0; border-radius: 9px; background: none; color: var(--muted); font-weight: 500; white-space: nowrap; }
+  .seg button[data-view], .seg button[data-mode] { flex: 1; padding: 8px 4px; border: 0; border-radius: 9px; background: none; color: var(--muted); font-weight: 500; white-space: nowrap; }
   .seg button.active { background: var(--accent); color: #fff; }
   .seg .fs { flex: none; width: 40px; border: 0; border-radius: 9px; background: none; color: var(--muted); display: grid; place-items: center; padding: 0; }
 
@@ -152,11 +209,16 @@
       <p class="date" id="date"></p>
       <p class="sub" id="sub"></p>
     </div>
+    <div class="hright">
+    <button class="gear" id="gear" aria-label="Налаштування">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>
+    </button>
     <svg class="ring" width="64" height="64" viewBox="0 0 64 64" role="img" aria-label="Прогрес">
       <circle class="track" cx="32" cy="32" r="26" fill="none" stroke-width="6"/>
       <circle class="bar" id="bar" cx="32" cy="32" r="26" fill="none" stroke-width="6" stroke-linecap="round" transform="rotate(-90 32 32)"/>
       <text id="pct" x="32" y="37" text-anchor="middle"></text>
     </svg>
+    </div>
   </header>
 
   <div class="seg" id="seg">
@@ -207,6 +269,21 @@
   </section>
 </main>
 
+<dialog id="settings" aria-label="Налаштування">
+  <div class="sheet">
+    <h2>Налаштування</h2>
+    <p class="slabel">Колір теми</p>
+    <div class="swatches" id="swatches"></div>
+    <p class="slabel">Вигляд</p>
+    <div class="seg" id="modes">
+      <button data-mode="auto">Системний</button>
+      <button data-mode="light">Світлий</button>
+      <button data-mode="dark">Темний</button>
+    </div>
+    <button class="fbtn primary" id="sclose" style="margin-top:20px">Готово</button>
+  </div>
+</dialog>
+
 <script>
   const KEY = 'todo.items.v1';
   const KEY_DONE = 'todo.showDone';
@@ -247,7 +324,8 @@
     c.width = innerWidth; c.height = innerHeight;
     document.body.append(c);
     const ctx = c.getContext('2d');
-    const colors = ['#4f46e5', '#16a34a', '#f59e0b', '#e5484d', '#06b6d4'];
+    const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+    const colors = [accent, '#16a34a', '#f59e0b', '#e5484d', '#06b6d4'];
     const ps = Array.from({ length: 32 }, () => ({
       x, y, vx: (Math.random() - .5) * 9, vy: -Math.random() * 9 - 2,
       s: 4 + Math.random() * 4, col: colors[(Math.random() * colors.length) | 0],
@@ -538,6 +616,46 @@
       $('fs').setAttribute('aria-label', on ? 'Вийти з повного екрана' : 'На весь екран');
     });
   }
+
+  let settings = readSettings();
+  const dlg = $('settings');
+
+  function renderSettings() {
+    const box = $('swatches');
+    box.textContent = '';
+    for (const t of THEMES) {
+      const on = t.id === settings.theme;
+      const b = document.createElement('button');
+      b.className = 'sw' + (on ? ' on' : '');
+      b.setAttribute('aria-pressed', on);
+      const dot = document.createElement('span');
+      dot.className = 'dot';
+      dot.style.background = t.c;
+      dot.textContent = on ? '✓' : '';
+      const name = document.createElement('span');
+      name.textContent = t.name;
+      b.append(dot, name);
+      b.onclick = () => { settings.theme = t.id; commitSettings(); };
+      box.append(b);
+    }
+    for (const b of document.querySelectorAll('#modes button')) {
+      b.classList.toggle('active', b.dataset.mode === settings.mode);
+    }
+  }
+
+  function commitSettings() {
+    try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch {}
+    applySettings(settings);
+    renderSettings();
+  }
+
+  $('gear').onclick = () => { renderSettings(); dlg.showModal(); };
+  $('sclose').onclick = () => dlg.close();
+  dlg.addEventListener('click', (e) => { if (e.target === dlg) dlg.close(); });
+  $('modes').addEventListener('click', (e) => {
+    const m = e.target.closest('button[data-mode]')?.dataset.mode;
+    if (m) { settings.mode = m; commitSettings(); }
+  });
 
   render();
 
