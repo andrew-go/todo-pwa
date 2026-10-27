@@ -227,7 +227,8 @@
   .gico { flex: none; width: 32px; text-align: center; font-size: 22px; }
   .gname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .gbtn { flex: none; padding: 6px 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--card); font-size: 13px; }
-  .gbtn.del { color: var(--danger); }
+  .gmv { width: 34px; padding: 6px 0; font-size: 16px; line-height: 1.2; }
+  .gbtn:disabled { opacity: .35; }
   .presets { display: flex; flex-wrap: wrap; gap: 8px; }
   .icons { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
   .ic { padding: 8px 0; font-size: 22px; line-height: 1.2; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); }
@@ -350,6 +351,7 @@
     <div id="glist">
       <div id="grows"></div>
       <p class="note" id="gempty">Груп ще немає. Створіть свою або додайте готову нижче.</p>
+      <p class="note" id="ghint">Стрілками змініть порядок секцій у списку. Видалити групу можна через «Змінити».</p>
       <div id="gpresetsBox">
         <p class="slabel">Швидко додати</p>
         <div class="presets" id="gpresets"></div>
@@ -829,18 +831,33 @@
       const name = document.createElement('span');
       name.className = 'gname';
       name.textContent = g.name;
+      const i = groups.indexOf(g);
+      const move = (dir) => {
+        const j = i + dir;
+        if (j < 0 || j >= groups.length) return;
+        [groups[i], groups[j]] = [groups[j], groups[i]];
+        saveGroups();
+        render();
+        renderGroups();
+      };
+      const mv = (label, text, dir, off) => {
+        const b = document.createElement('button');
+        b.className = 'gbtn gmv';
+        b.setAttribute('aria-label', label);
+        b.textContent = text;
+        b.disabled = off;
+        b.onclick = () => move(dir);
+        return b;
+      };
       const edit = document.createElement('button');
       edit.className = 'gbtn';
       edit.textContent = 'Змінити';
       edit.onclick = () => startEdit(g);
-      const del = document.createElement('button');
-      del.className = 'gbtn del';
-      del.textContent = 'Видалити';
-      del.onclick = () => deleteGroup(g);
-      row.append(ico, name, edit, del);
+      row.append(ico, name, mv('Вище', '↑', -1, i === 0), mv('Нижче', '↓', 1, i === groups.length - 1), edit);
       rows.append(row);
     }
     $('gempty').hidden = groups.length > 0;
+    $('ghint').hidden = groups.length < 2;
 
     const missing = PRESETS.filter((p) => !groups.some((g) => g.name === p.name));
     $('gpresetsBox').hidden = missing.length === 0;
