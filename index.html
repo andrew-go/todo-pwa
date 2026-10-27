@@ -34,6 +34,8 @@
     else root.removeAttribute('data-mode');
     const meta = document.querySelector('meta[name="theme-color"]');
     if (meta) meta.content = t.c;
+    const icon = document.querySelector('link[rel="apple-touch-icon"]');
+    if (icon) icon.href = `apple-${t.id}.png`;
   }
   applySettings(readSettings());
 </script>
@@ -110,6 +112,7 @@
   .sheet { padding: 20px 16px calc(16px + env(safe-area-inset-bottom)); }
   .sheet h2 { margin: 0 0 4px; font-size: 20px; }
   .slabel { margin: 16px 0 8px; color: var(--muted); font-size: 13px; }
+  .note { margin: 10px 0 0; color: var(--muted); font-size: 12px; line-height: 1.4; }
   .swatches { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
   .sw {
     display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 4px;
@@ -274,6 +277,7 @@
     <h2>Налаштування</h2>
     <p class="slabel">Колір теми</p>
     <div class="swatches" id="swatches"></div>
+    <p class="note">Іконка на головному екрані iPhone бере колір теми в момент додавання. Щоб змінити її, видаліть додаток і додайте знову.</p>
     <p class="slabel">Вигляд</p>
     <div class="seg" id="modes">
       <button data-mode="auto">Системний</button>
