@@ -382,7 +382,7 @@
     </div>
     <p class="slabel">Введення</p>
     <label class="vrow opt"><span>Ділити текст на кілька задач</span><input type="checkbox" id="splitOpt"></label>
-    <p class="note">Зручно для диктування: «хліб, вода, печиво» стане трьома задачами. Розділяють кома, крапка з комою, крапка та слово «кома». Перед додаванням ви побачите попередній перегляд.</p>
+    <p class="note">Зручно для диктування: «хліб, вода, печиво» стане трьома задачами. Розділяють кома, крапка з комою, крапка та слова «кома» і «далі». Перед додаванням ви побачите попередній перегляд.</p>
     <p class="slabel">Дані</p>
     <div class="drow">
       <button class="fbtn ghost" id="exportBtn">Експорт</button>
@@ -1072,8 +1072,9 @@
     let parts = [raw];
     if (settings.split && !noSplit) {
       const p = parseTasks(raw);
+      // Одна задача — нічого не ділимо, зберігаємо текст як є («що робити далі» не втрачає слова).
       if (p.length > 1) parts = p.map(cap);
-      else parts = p;
+      else parts = [raw.replace(/[\s,;]+$/, '').replace(/([^.])\.$/, '$1')];
     }
     parts = parts.map((s) => s.slice(0, 1000));
     $('input').value = '';
@@ -1174,7 +1175,7 @@
     const MARK = '⁣';
     return text
       .replace(URL_RE, (u) => { urls.push(u); return `${MARK}${urls.length - 1}${MARK}`; })
-      .replace(/(^|\s)(?:крапка з комою|кома)(?=[\s,.;]|$)/gi, ',')
+      .replace(/(^|\s)(?:крапка з комою|кома|далі)(?=[\s,.;]|$)/gi, ',')
       .replace(ABBR, `$1$2${DOT}`)
       // Кома між цифрами («0,5 кг», «2,5%») — десятковий дріб, а не роздільник.
       .split(/[;\n]+|,(?!\d)|\.(?=\s|$)/)
