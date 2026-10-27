@@ -258,6 +258,8 @@
   .ic { padding: 8px 0; font-size: 22px; line-height: 1.2; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); }
   .ic.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
   .tgroups { display: flex; flex-wrap: wrap; gap: 8px; }
+  .tlink { margin: 6px 0 0; }
+  .tlink .lnk { margin-left: 0; font-size: 15px; padding: 4px 12px; }
   .twrap { display: flex; gap: 8px; margin-top: 16px; }
   .twrap .fbtn { margin-top: 0; }
 
@@ -431,8 +433,9 @@
 
 <dialog id="taskDlg" aria-label="Задача">
   <div class="sheet">
-    <h2>Задача</h2>
-    <p class="slabel">Текст</p>
+    <h2 id="ttitle">Задача</h2>
+    <p class="tlink" id="tlink" hidden></p>
+    <p class="slabel" id="tlabel">Текст</p>
     <input id="tinput" type="text" maxlength="1000" aria-label="Текст задачі">
     <p class="err" id="terr"></p>
     <p class="slabel">Група</p>
@@ -1018,12 +1021,23 @@
 
   let tedit = null;
 
-  function openTask(t) {
-    tedit = { t, group: t.group && groupById(t.group) ? t.group : null };
-    $('tinput').value = t.text;
+  const isLinkOnly = (text) => !!text.match(URL_RE) && !text.replace(URL_RE, '').trim();
+
+  // caption: щойно додане голе посилання — просимо назву, саме посилання не чіпаємо.
+  function openTask(t, caption = false) {
+    tedit = { t, caption, group: t.group && groupById(t.group) ? t.group : null };
+    $('ttitle').textContent = caption ? 'Як назвати?' : 'Задача';
+    $('tlabel').textContent = caption ? 'Назва' : 'Текст';
+    $('tlink').hidden = !caption;
+    if (caption) fillText($('tlink'), t.text);
+    $('tinput').value = caption ? '' : t.text;
+    $('tinput').placeholder = caption ? 'Наприклад, Рецепт виноградного желе' : '';
+    $('tcancel').textContent = caption ? 'Пропустити' : 'Скасувати';
+    $('tarch').hidden = caption;
     $('terr').textContent = '';
     renderTaskGroups();
     $('taskDlg').showModal();
+    if (caption) $('tinput').focus();
   }
 
   function renderTaskGroups() {
@@ -1041,9 +1055,10 @@
   }
 
   function saveTask() {
-    const text = $('tinput').value.trim();
+    let text = $('tinput').value.trim();
+    if (tedit.caption) text = text ? `${text} ${tedit.t.text}` : tedit.t.text;
     if (!text) { $('terr').textContent = 'Введіть текст задачі'; return; }
-    tedit.t.text = text;
+    tedit.t.text = cleanLinks(text);
     if (tedit.group) tedit.t.group = tedit.group; else delete tedit.t.group;
     save();
     $('taskDlg').close();
@@ -1068,14 +1083,18 @@
     const gid = addGroup !== 'none' && groupById(addGroup) ? addGroup : null;
     collapsed.delete(gid || 'none');
     saveCollapsed();
+    let last = null;
     for (const text of parts) {
       const t = { id: uid(), text, done: false };
       if (gid) t.group = gid;
       items.push(t);
       justAdded = t.id;
+      last = t;
     }
     save();
     render();
+    // Одне посилання без підпису — одразу пропонуємо назвати, щоб потім було зрозуміло, що це.
+    if (parts.length === 1 && isLinkOnly(last.text)) openTask(last, true);
   });
 
   $('seg').addEventListener('click', (e) => {
