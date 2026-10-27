@@ -133,19 +133,28 @@
   .seg button.active { background: var(--accent); color: #fff; }
   .seg .fs { flex: none; width: 40px; border: 0; border-radius: 9px; background: none; color: var(--muted); display: grid; place-items: center; padding: 0; }
 
-  .chips {
-    display: flex; gap: 8px; overflow-x: auto; margin: 0 -16px 14px; padding: 2px 16px;
-    scrollbar-width: none;
-  }
-  .chips::-webkit-scrollbar { display: none; }
   .chip {
     flex: none; display: inline-flex; align-items: center; gap: 6px; padding: 8px 13px;
     border: 1px solid var(--border); border-radius: 999px; background: var(--card); font-size: 14px; white-space: nowrap;
   }
   .chip.on { background: var(--accent); border-color: var(--accent); color: #fff; }
-  .chip .n { font-size: 12px; color: var(--muted); }
-  .chip.on .n { color: #fff; opacity: .85; }
-  .chip.manage { color: var(--muted); border-style: dashed; background: none; }
+
+  li.gh { display: flex; align-items: center; margin: 14px 0 6px; }
+  li.gh:first-child { margin-top: 2px; }
+  .gtoggle {
+    flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; padding: 6px 2px;
+    border: 0; background: none; font-weight: 600; font-size: 15px; text-align: left;
+  }
+  .gchev { flex: none; width: 14px; color: var(--muted); font-size: 12px; }
+  .gicon { flex: none; font-size: 18px; }
+  .gtext { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .gcnt { margin-left: auto; padding-left: 8px; color: var(--muted); font-weight: 400; font-size: 13px; }
+  .gmore { flex: none; border: 0; background: none; color: var(--muted); font-size: 20px; line-height: 1; padding: 4px 8px; }
+  .pick {
+    flex: none; min-width: 52px; padding: 0 10px; display: flex; align-items: center; justify-content: center; gap: 4px;
+    border: 1px solid var(--border); border-radius: 12px; background: var(--card); font-size: 20px;
+  }
+  .pick .pc { font-size: 11px; color: var(--muted); }
 
   form {
     display: flex; gap: 8px; margin-top: auto;
@@ -271,10 +280,9 @@
     </button>
   </div>
 
-  <div class="chips" id="chips"></div>
-
   <section id="listView">
     <ul id="list"></ul>
+    <button class="link" id="addGroupBtn"></button>
     <p class="empty" id="empty" hidden></p>
     <p class="hint" id="hint" hidden>Свайп вправо — готово, вліво — в архів. Тап по задачі — змінити.</p>
 
@@ -287,6 +295,7 @@
     </div>
 
     <form id="form" autocomplete="off">
+      <button class="pick" type="button" id="pick" aria-label="Група для нової задачі" hidden><span id="pickIcon"></span><span class="pc">▾</span></button>
       <input id="input" type="text" placeholder="Що потрібно зробити?" maxlength="200" aria-label="Нова задача">
       <button class="add" type="submit" aria-label="Додати">
         <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
@@ -361,6 +370,7 @@
         <button class="fbtn ghost" id="gcancel">Скасувати</button>
         <button class="fbtn primary" id="gsave">Зберегти</button>
       </div>
+      <button class="link danger" id="gdel" hidden>Видалити групу</button>
     </div>
   </div>
 </dialog>
@@ -380,10 +390,18 @@
   </div>
 </dialog>
 
+<dialog id="pickDlg" aria-label="Група для нової задачі">
+  <div class="sheet">
+    <h2>Додати в групу</h2>
+    <div class="tgroups" id="pickOpts" style="margin-top:14px"></div>
+  </div>
+</dialog>
+
 <script>
   const KEY = 'todo.items.v1';
   const KEY_GROUPS = 'todo.groups.v1';
-  const KEY_GROUP = 'todo.group';
+  const KEY_COLL = 'todo.collapsed';
+  const KEY_ADD = 'todo.addGroup';
   const KEY_DONE = 'todo.showDone';
   const SWIPE = 90;
   const CIRC = 2 * Math.PI * 26;
@@ -414,8 +432,9 @@
 
   let items = loadList(KEY);
   let groups = loadList(KEY_GROUPS);
-  let currentGroup = loadStr(KEY_GROUP) || 'all';
-  if (currentGroup !== 'all' && !groups.some((g) => g.id === currentGroup)) currentGroup = 'all';
+  let collapsed = new Set(loadList(KEY_COLL));
+  let addGroup = loadStr(KEY_ADD) || 'none';
+  if (addGroup !== 'none' && !groups.some((g) => g.id === addGroup)) addGroup = 'none';
   let view = 'list';
   let justAdded = null;
   let showDone = loadStr(KEY_DONE) === '1';
@@ -425,9 +444,10 @@
   const groupById = (id) => groups.find((g) => g.id === id);
 
   const live = () => items.filter((t) => !t.archived);
-  const scope = () => live().filter((t) => currentGroup === 'all' || t.group === currentGroup);
-  const active = () => scope().filter((t) => !t.done);
-  const finished = () => scope().filter((t) => t.done);
+  const active = () => live().filter((t) => !t.done);
+  const finished = () => live().filter((t) => t.done);
+  const saveCollapsed = () => saveJSON(KEY_COLL, [...collapsed]);
+  function setAddGroup(id) { addGroup = id; saveStr(KEY_ADD, id); }
   const archived = () => items.filter((t) => t.archived).sort((a, b) => (b.archivedAt || 0) - (a.archivedAt || 0));
 
   function buzz(ms) { if (navigator.vibrate) navigator.vibrate(ms); }
@@ -516,7 +536,7 @@
     });
   }
 
-  function makeRow(t) {
+  function makeRow(t, badge) {
     const li = document.createElement('li');
     li.className = 'swipe' + (t.id === justAdded ? ' enter' : '');
 
@@ -545,13 +565,13 @@
 
     row.append(check, text);
 
-    const g = currentGroup === 'all' && t.group ? groupById(t.group) : null;
+    const g = badge && t.group ? groupById(t.group) : null;
     if (g) {
-      const badge = document.createElement('span');
-      badge.className = 'gb';
-      badge.textContent = g.icon;
-      badge.title = g.name;
-      row.append(badge);
+      const gb = document.createElement('span');
+      gb.className = 'gb';
+      gb.textContent = g.icon;
+      gb.title = g.name;
+      row.append(gb);
     }
 
     li.append(bg, row);
@@ -559,41 +579,52 @@
     return li;
   }
 
-  function selectGroup(id) {
-    currentGroup = id;
-    saveStr(KEY_GROUP, id);
-    lastFocusId = null;
-    render();
-  }
-
-  function renderChips() {
-    const bar = $('chips');
-    bar.textContent = '';
-    const chip = (icon, label, count, on, fn, cls) => {
-      const b = document.createElement('button');
-      b.className = 'chip' + (on ? ' on' : '') + (cls ? ' ' + cls : '');
-      if (icon) { const i = document.createElement('span'); i.textContent = icon; b.append(i); }
+  function sectionHeader(key, g, count) {
+    const li = document.createElement('li');
+    li.className = 'gh';
+    const open = !collapsed.has(key);
+    const part = (cls, text) => {
       const s = document.createElement('span');
-      s.textContent = label;
-      b.append(s);
-      if (count) { const n = document.createElement('span'); n.className = 'n'; n.textContent = count; b.append(n); }
-      b.onclick = fn;
-      bar.append(b);
+      s.className = cls;
+      s.textContent = text;
+      return s;
     };
-    const open = live().filter((t) => !t.done);
-    chip('', 'Усі', open.length, currentGroup === 'all', () => selectGroup('all'));
-    for (const g of groups) {
-      chip(g.icon, g.name, open.filter((t) => t.group === g.id).length, currentGroup === g.id, () => selectGroup(g.id));
+
+    const toggle = document.createElement('button');
+    toggle.className = 'gtoggle';
+    toggle.setAttribute('aria-expanded', open);
+    toggle.append(
+      part('gchev', open ? '▾' : '▸'),
+      part('gicon', g ? g.icon : '📥'),
+      part('gtext', g ? g.name : 'Без групи'),
+      part('gcnt', count),
+    );
+    toggle.onclick = () => {
+      if (open) collapsed.add(key); else collapsed.delete(key);
+      saveCollapsed();
+      render();
+    };
+    li.append(toggle);
+
+    if (g) {
+      const more = document.createElement('button');
+      more.className = 'gmore';
+      more.setAttribute('aria-label', 'Змінити групу');
+      more.textContent = '⋯';
+      more.onclick = () => openGroups(g);
+      li.append(more);
     }
-    chip('+', groups.length ? 'Групи' : 'Додати групу', 0, false, openGroups, 'manage');
+    return li;
   }
 
   function renderHeader() {
-    const g = currentGroup === 'all' ? null : groupById(currentGroup);
-    $('title').textContent = g ? `${g.icon} ${g.name}` : 'Сьогодні';
-    $('input').placeholder = g ? `Що додати в «${g.name}»?` : 'Що потрібно зробити?';
+    if (addGroup !== 'none' && !groupById(addGroup)) setAddGroup('none');
+    const ag = addGroup === 'none' ? null : groupById(addGroup);
+    $('pick').hidden = groups.length === 0;
+    $('pickIcon').textContent = ag ? ag.icon : '📥';
+    $('input').placeholder = ag ? `Що додати в «${ag.name}»?` : 'Що потрібно зробити?';
 
-    const all = scope();
+    const all = live();
     const done = finished().length;
     const ratio = all.length ? done / all.length : 0;
     $('bar').style.strokeDasharray = CIRC;
@@ -609,10 +640,22 @@
     const list = $('list');
     list.textContent = '';
     let fresh = null;
-    for (const t of active()) {
+    const addRow = (t) => {
       const li = makeRow(t);
       list.append(li);
       if (t.id === justAdded) fresh = li;
+    };
+    const act = active();
+    if (groups.length === 0) {
+      act.forEach(addRow);
+    } else {
+      const sections = groups.map((g) => ({ key: g.id, g, tasks: act.filter((t) => t.group === g.id) }));
+      const loose = act.filter((t) => !t.group || !groupById(t.group));
+      if (loose.length) sections.push({ key: 'none', g: null, tasks: loose });
+      for (const s of sections) {
+        list.append(sectionHeader(s.key, s.g, s.tasks.length));
+        if (!collapsed.has(s.key)) s.tasks.forEach(addRow);
+      }
     }
     justAdded = null;
     if (fresh) fresh.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
@@ -620,25 +663,24 @@
     const doneList = $('doneList');
     doneList.textContent = '';
     const fin = finished();
-    for (const t of fin) doneList.append(makeRow(t));
+    for (const t of fin) doneList.append(makeRow(t, true));
     $('doneBox').hidden = fin.length === 0;
     $('donetitle').textContent = `Виконані (${fin.length})`;
     $('donearrow').textContent = showDone ? '▴' : '▾';
     $('donebody').hidden = !showDone;
 
-    const total = scope().length;
+    const total = live().length;
     $('empty').hidden = active().length > 0;
-    $('empty').textContent = total === 0
-      ? (currentGroup === 'all' ? 'Поки що порожньо — додайте першу задачу' : 'У цій групі поки порожньо — додайте задачу')
-      : 'Усе зроблено — так тримати!';
+    $('empty').textContent = total === 0 ? 'Поки що порожньо — додайте першу задачу' : 'Усе зроблено — так тримати!';
     $('hint').hidden = total === 0;
+    $('addGroupBtn').textContent = groups.length ? '+ Нова група' : '+ Створити групу для задач';
   }
 
   let lastFocusId = null;
   function renderFocus() {
     const todo = active();
     const fcard = $('fcard');
-    const total = scope().length;
+    const total = live().length;
     const done = total - todo.length;
     $('fbar').style.width = (total ? (done / total) * 100 : 0) + '%';
     fcard.textContent = '';
@@ -719,8 +761,6 @@
 
   function render() {
     renderHeader();
-    renderChips();
-    $('chips').hidden = view === 'archive';
     $('listView').hidden = view !== 'list';
     $('focusView').hidden = view !== 'focus';
     $('archView').hidden = view !== 'archive';
@@ -745,9 +785,9 @@
     return Array.from(s)[0];
   }
 
-  function openGroups() {
-    gedit = null;
-    renderGroups();
+  function openGroups(g) {
+    if (g) startEdit(g);
+    else { gedit = null; renderGroups(); }
     $('groupsDlg').showModal();
   }
 
@@ -776,7 +816,7 @@
     $('glist').hidden = editing;
     $('gedit').hidden = !editing;
     $('gtitle').textContent = editing ? (gedit.id ? 'Змінити групу' : 'Нова група') : 'Групи';
-    if (editing) { renderGroupIcons(); return; }
+    if (editing) { $('gdel').hidden = !gedit.id; renderGroupIcons(); return; }
 
     const rows = $('grows');
     rows.textContent = '';
@@ -833,9 +873,12 @@
 
   function deleteGroup(g) {
     if (!confirm(`Видалити групу «${g.name}»? Задачі залишаться, але без групи.`)) return;
+    if (gedit && gedit.id === g.id) gedit = null;
     groups = groups.filter((x) => x.id !== g.id);
     for (const t of items) if (t.group === g.id) delete t.group;
-    if (currentGroup === g.id) { currentGroup = 'all'; saveStr(KEY_GROUP, 'all'); }
+    if (addGroup === g.id) setAddGroup('none');
+    collapsed.delete(g.id);
+    saveCollapsed();
     saveGroups();
     save();
     render();
@@ -881,7 +924,9 @@
     const text = $('input').value.trim();
     if (!text) return;
     const t = { id: uid(), text, done: false };
-    if (currentGroup !== 'all') t.group = currentGroup;
+    if (addGroup !== 'none' && groupById(addGroup)) { t.group = addGroup; collapsed.delete(addGroup); }
+    else collapsed.delete('none');
+    saveCollapsed();
     items.push(t);
     justAdded = t.id;
     $('input').value = '';
@@ -922,6 +967,24 @@
     render();
   };
 
+  function openPick() {
+    const box = $('pickOpts');
+    box.textContent = '';
+    const opt = (icon, label, id) => {
+      const b = document.createElement('button');
+      b.className = 'chip' + (addGroup === id ? ' on' : '');
+      b.textContent = `${icon} ${label}`;
+      b.onclick = () => { setAddGroup(id); $('pickDlg').close(); render(); };
+      box.append(b);
+    };
+    opt('📥', 'Без групи', 'none');
+    for (const g of groups) opt(g.icon, g.name, g.id);
+    $('pickDlg').showModal();
+  }
+
+  $('pick').onclick = openPick;
+  $('addGroupBtn').onclick = () => openGroups();
+  $('gdel').onclick = () => { const g = groupById(gedit && gedit.id); if (g) deleteGroup(g); };
   $('gnew').onclick = () => startEdit(null);
   $('gclose').onclick = () => $('groupsDlg').close();
   $('gcancel').onclick = () => { gedit = null; renderGroups(); };
@@ -938,6 +1001,7 @@
   $('tinput').addEventListener('input', () => { $('terr').textContent = ''; });
   bindBackdrop($('groupsDlg'));
   bindBackdrop($('taskDlg'));
+  bindBackdrop($('pickDlg'));
 
   const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
   if (document.fullscreenEnabled && !standalone) {
