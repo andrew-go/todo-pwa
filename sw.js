@@ -1,5 +1,5 @@
 // Збільшуйте версію при кожній зміні файлів, щоб телефон підтягнув оновлення.
-const CACHE = 'todo-v1';
+const CACHE = 'todo-v2';
 const ASSETS = ['./', './index.html', './manifest.json', './icon.svg', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', (e) => {
