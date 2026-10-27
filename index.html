@@ -11,6 +11,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="TODO">
+<script src="version.js"></script>
 <script>
   const THEMES = [
     { id: 'indigo', name: 'Індиго', c: '#4f46e5' },
@@ -112,6 +113,9 @@
   .sheet { padding: 20px 16px calc(16px + env(safe-area-inset-bottom)); }
   .sheet h2 { margin: 0 0 4px; font-size: 20px; }
   .slabel { margin: 16px 0 8px; color: var(--muted); font-size: 13px; }
+  .vrow { display: flex; justify-content: space-between; padding: 10px 2px; font-size: 15px; border-bottom: 1px solid var(--border); }
+  .vrow span:last-child { color: var(--muted); }
+  .fbtn:disabled { opacity: .6; }
   .note { margin: 10px 0 0; color: var(--muted); font-size: 12px; line-height: 1.4; }
   .swatches { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
   .sw {
@@ -284,7 +288,11 @@
       <button data-mode="light">Світлий</button>
       <button data-mode="dark">Темний</button>
     </div>
-    <button class="fbtn primary" id="sclose" style="margin-top:20px">Готово</button>
+    <p class="slabel">Додаток</p>
+    <div class="vrow"><span>Версія</span><span id="ver"></span></div>
+    <button class="fbtn ghost" id="refresh" style="margin-top:8px;padding:12px;font-size:15px">Очистити кеш і оновити</button>
+    <p class="note" id="refreshNote">Видаляє збережені файли додатка й завантажує свіжу версію. Ваші задачі та налаштування не зачіпаються.</p>
+    <button class="fbtn primary" id="sclose" style="margin-top:16px">Готово</button>
   </div>
 </dialog>
 
@@ -660,6 +668,29 @@
     const m = e.target.closest('button[data-mode]')?.dataset.mode;
     if (m) { settings.mode = m; commitSettings(); }
   });
+
+  $('ver').textContent = typeof APP_VERSION === 'undefined' ? '—' : 'v' + APP_VERSION;
+
+  $('refresh').onclick = async () => {
+    const btn = $('refresh'), note = $('refreshNote');
+    btn.disabled = true;
+    note.textContent = 'Перевіряю з’єднання…';
+    try {
+      const urls = ['./', 'index.html', 'sw.js', 'version.js', 'manifest.json'];
+      const res = await Promise.all(urls.map((u) => fetch(u, { cache: 'reload' })));
+      if (res.some((r) => !r.ok)) throw new Error('bad response');
+    } catch {
+      note.textContent = 'Немає з’єднання — кеш не очищено, додаток далі працює офлайн.';
+      btn.disabled = false;
+      return;
+    }
+    note.textContent = 'Очищаю кеш і оновлюю…';
+    try {
+      if ('caches' in window) for (const k of await caches.keys()) await caches.delete(k);
+      if ('serviceWorker' in navigator) for (const r of await navigator.serviceWorker.getRegistrations()) await r.unregister();
+    } catch {}
+    location.reload();
+  };
 
   render();
 
