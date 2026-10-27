@@ -15,9 +15,9 @@
 <script>
   const THEMES = [
     { id: 'indigo', name: 'Індиго', c: '#4f46e5' },
-    { id: 'ocean', name: 'Океан', c: '#0284c7' },
-    { id: 'forest', name: 'Ліс', c: '#059669' },
-    { id: 'sunset', name: 'Захід', c: '#ea580c' },
+    { id: 'ocean', name: 'Океан', c: '#0369a1' },
+    { id: 'forest', name: 'Ліс', c: '#047857' },
+    { id: 'sunset', name: 'Захід', c: '#c2410c' },
     { id: 'rose', name: 'Троянда', c: '#db2777' },
     { id: 'graphite', name: 'Графіт', c: '#64748b' },
   ];
@@ -45,7 +45,7 @@
     --bg: #f5f5f9;
     --card: #ffffff;
     --text: #1c1c28;
-    --muted: #8a8aa0;
+    --muted: #686880;
     --accent: #4f46e5;
     --border: #e4e4ee;
     --danger: #e5484d;
@@ -263,6 +263,20 @@
   .fbtn { width: 100%; padding: 16px; border-radius: 14px; font-weight: 600; font-size: 17px; margin-top: 10px; }
   .fbtn.primary { border: 0; background: var(--accent); color: #fff; }
   .fbtn.ghost { border: 1px solid var(--border); background: var(--card); }
+
+  .toast {
+    position: fixed; left: 50%; bottom: calc(84px + env(safe-area-inset-bottom)); z-index: 20;
+    width: max-content; max-width: min(520px, calc(100% - 32px)); transform: translateX(-50%);
+    display: flex; align-items: center; gap: 12px; padding: 10px 10px 10px 16px;
+    border-radius: 12px; background: #1c1c28; color: #fff; font-size: 14px;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, .25); animation: pop .2s ease-out;
+  }
+  :root[data-mode="dark"] .toast { background: #ececf4; color: #1c1c28; }
+  @media (prefers-color-scheme: dark) { :root:not([data-mode="light"]) .toast { background: #ececf4; color: #1c1c28; } }
+  .toast span { flex: 1; min-width: 0; }
+  .toast button { flex: none; padding: 6px 10px; border: 0; border-radius: 8px; background: none; color: inherit; font-weight: 700; text-decoration: underline; }
+  .drow { display: flex; gap: 8px; }
+  .drow .fbtn { margin-top: 0; padding: 12px; font-size: 15px; }
 </style>
 </head>
 <body>
@@ -356,6 +370,13 @@
     <p class="slabel">Введення</p>
     <label class="vrow check"><span>Ділити текст на кілька задач</span><input type="checkbox" id="splitOpt"></label>
     <p class="note">Зручно для диктування: «хліб, вода, печиво» стане трьома задачами. Розділяють кома, крапка з комою, крапка та слово «кома». Перед додаванням ви побачите попередній перегляд.</p>
+    <p class="slabel">Дані</p>
+    <div class="drow">
+      <button class="fbtn ghost" id="exportBtn">Експорт</button>
+      <button class="fbtn ghost" id="importBtn">Імпорт</button>
+    </div>
+    <input type="file" id="importFile" accept="application/json,.json" hidden>
+    <p class="note" id="dataNote">Задачі зберігаються лише на цьому пристрої. Зробіть резервну копію у файл, щоб перенести їх або не втратити.</p>
     <p class="slabel">Додаток</p>
     <div class="vrow"><span>Версія</span><span id="ver"></span></div>
     <button class="fbtn ghost" id="refresh" style="margin-top:8px;padding:12px;font-size:15px">Очистити кеш і оновити</button>
@@ -401,7 +422,7 @@
   <div class="sheet">
     <h2>Задача</h2>
     <p class="slabel">Текст</p>
-    <input id="tinput" type="text" maxlength="200" aria-label="Текст задачі">
+    <input id="tinput" type="text" maxlength="1000" aria-label="Текст задачі">
     <p class="err" id="terr"></p>
     <p class="slabel">Група</p>
     <div class="tgroups" id="tgroups"></div>
@@ -409,8 +430,11 @@
       <button class="fbtn ghost" id="tcancel">Скасувати</button>
       <button class="fbtn primary" id="tsave">Зберегти</button>
     </div>
+    <button class="link" id="tarch">Перенести в архів</button>
   </div>
 </dialog>
+
+<div class="toast" id="toast" role="status" aria-live="polite" hidden><span id="toastText"></span><button id="toastBtn" hidden></button></div>
 
 <dialog id="pickDlg" aria-label="Група для нової задачі">
   <div class="sheet">
@@ -441,9 +465,30 @@
     try { const v = JSON.parse(localStorage.getItem(k)); return Array.isArray(v) ? v : []; }
     catch { return []; }
   }
+  let saveFailedShown = false;
   function saveJSON(k, v) {
-    try { localStorage.setItem(k, JSON.stringify(v)); } catch {}
+    try { localStorage.setItem(k, JSON.stringify(v)); }
+    catch {
+      // Раніше помилка зникала мовчки, і зміни втрачались після закриття.
+      if (!saveFailedShown) {
+        saveFailedShown = true;
+        toast('Не вдалося зберегти зміни на пристрої. Зробіть експорт у налаштуваннях.');
+      }
+    }
   }
+
+  let toastTimer = null;
+  function toast(text, actionLabel, action) {
+    const el = $('toast'), btn = $('toastBtn');
+    $('toastText').textContent = text;
+    btn.hidden = !action;
+    btn.textContent = actionLabel || '';
+    btn.onclick = () => { hideToast(); action(); };
+    el.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(hideToast, action ? 5000 : 3500);
+  }
+  function hideToast() { clearTimeout(toastTimer); $('toast').hidden = true; }
   function loadStr(k) {
     try { return localStorage.getItem(k); } catch { return null; }
   }
@@ -478,9 +523,11 @@
     if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     const c = document.createElement('canvas');
     c.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:10';
-    c.width = innerWidth; c.height = innerHeight;
+    const dpr = devicePixelRatio || 1;
+    c.width = innerWidth * dpr; c.height = innerHeight * dpr;
     document.body.append(c);
     const ctx = c.getContext('2d');
+    ctx.scale(dpr, dpr);
     const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
     const colors = [accent, '#16a34a', '#f59e0b', '#e5484d', '#06b6d4'];
     const ps = Array.from({ length: 32 }, () => ({
@@ -489,7 +536,7 @@
     }));
     let n = 0;
     (function frame() {
-      ctx.clearRect(0, 0, c.width, c.height);
+      ctx.clearRect(0, 0, innerWidth, innerHeight);
       for (const p of ps) {
         p.vy += .38; p.x += p.vx; p.y += p.vy;
         ctx.fillStyle = p.col;
@@ -511,7 +558,22 @@
     row.style.transform = 'translateX(-110%)';
     li.style.height = li.offsetHeight + 'px';
     setTimeout(() => li.classList.add('collapse'), 120);
-    setTimeout(() => { t.archived = true; t.archivedAt = Date.now(); save(); render(); }, 360);
+    setTimeout(() => archiveTasks([t]), 360);
+  }
+
+  function archiveTasks(list) {
+    if (!list.length) return;
+    const now = Date.now();
+    for (const t of list) { t.archived = true; t.archivedAt = now; }
+    save();
+    render();
+    const msg = list.length === 1 ? 'Задачу перенесено в архів' : `Перенесено в архів: ${list.length}`;
+    const ids = new Set(list.map((t) => t.id));
+    toast(msg, 'Скасувати', () => {
+      for (const t of items) if (ids.has(t.id)) { t.archived = false; delete t.archivedAt; }
+      save();
+      render();
+    });
   }
 
   function attachSwipe(li, row, t) {
@@ -584,6 +646,12 @@
     const text = document.createElement('span');
     text.className = 'text';
     text.textContent = t.text;
+    // Доступ з клавіатури: Enter/пробіл відкриває задачу (там є і «В архів»).
+    text.tabIndex = 0;
+    text.setAttribute('role', 'button');
+    text.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openTask(t); }
+    });
 
     row.append(check, text);
 
@@ -698,9 +766,22 @@
     $('addGroupBtn').textContent = groups.length ? '+ Нова група' : '+ Створити групу для задач';
   }
 
+  // Порядок у Фокусі: як у списку (за порядком груп), а відкладені «Пізніше» — в кінці.
+  // Відкладання більше не змінює порядок задач у самому списку.
+  function focusQueue() {
+    const rank = (t) => {
+      const i = t.group ? groups.findIndex((g) => g.id === t.group) : -1;
+      return i < 0 ? groups.length : i;
+    };
+    return active()
+      .map((t, i) => ({ t, i }))
+      .sort((a, b) => (a.t.later || 0) - (b.t.later || 0) || rank(a.t) - rank(b.t) || a.i - b.i)
+      .map((x) => x.t);
+  }
+
   let lastFocusId = null;
   function renderFocus() {
-    const todo = active();
+    const todo = focusQueue();
     const fcard = $('fcard');
     const total = live().length;
     const done = total - todo.length;
@@ -966,7 +1047,7 @@
       if (p.length > 1) parts = p.map(cap);
       else parts = p;
     }
-    parts = parts.map((s) => s.slice(0, 200));
+    parts = parts.map((s) => s.slice(0, 1000));
     $('input').value = '';
     noSplit = false;
     updateSplitBar();
@@ -991,12 +1072,7 @@
 
   $('donehead').onclick = () => { showDone = !showDone; saveStr(KEY_DONE, showDone ? '1' : '0'); render(); };
 
-  $('archiveDone').onclick = () => {
-    const now = Date.now();
-    for (const t of finished()) { t.archived = true; t.archivedAt = now; }
-    save();
-    render();
-  };
+  $('archiveDone').onclick = () => archiveTasks(finished());
 
   $('archClear').onclick = () => {
     if (!confirm('Видалити весь архів назавжди? Цю дію не можна скасувати.')) return;
@@ -1006,13 +1082,13 @@
   };
 
   $('fdone').onclick = (e) => {
-    const t = active()[0];
-    if (t) complete(t, e.clientX, e.clientY);
+    const t = focusQueue()[0];
+    if (t) { delete t.later; complete(t, e.clientX, e.clientY); }
   };
   $('flater').onclick = () => {
-    const t = active()[0];
+    const t = focusQueue()[0];
     if (!t) return;
-    items = items.filter((x) => x !== t).concat(t);
+    t.later = Date.now();
     save();
     render();
   };
@@ -1046,6 +1122,7 @@
     if (g) { gedit.icon = g; renderGroupIcons(); }
   });
   $('tcancel').onclick = () => $('taskDlg').close();
+  $('tarch').onclick = () => { const t = tedit.t; $('taskDlg').close(); archiveTasks([t]); };
   $('tsave').onclick = saveTask;
   $('tinput').addEventListener('keydown', (e) => { if (e.key === 'Enter') saveTask(); });
   $('tinput').addEventListener('input', () => { $('terr').textContent = ''; });
@@ -1055,11 +1132,17 @@
 
   let noSplit = false;
 
+  // Скорочення, після яких крапка не завершує задачу: «вул. Шевченка», «і т. д.».
+  const ABBR = /(^|[\s(])(вул|пров|просп|пр|пл|бул|буд|кв|м|с|р|т|д|п|ім|св|див|напр|тис|млн|млрд|грн|коп|шт|кг|г|л|мл|см|мм|км|год|хв|сек|ст|ін)\.(?=\s)/gi;
+  const DOT = '․';
+
   function parseTasks(text) {
     return text
       .replace(/(^|\s)(?:крапка з комою|кома)(?=[\s,.;]|$)/gi, ',')
-      .split(/[,;\n]+|\.(?=\s|$)/)
-      .map((s) => s.trim())
+      .replace(ABBR, `$1$2${DOT}`)
+      // Кома між цифрами («0,5 кг», «2,5%») — десятковий дріб, а не роздільник.
+      .split(/[;\n]+|,(?!\d)|\.(?=\s|$)/)
+      .map((s) => s.replaceAll(DOT, '.').replace(/^[,\s]+|[,\s]+$/g, ''))
       .filter(Boolean);
   }
   const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -1141,6 +1224,74 @@
 
   $('ver').textContent = typeof APP_VERSION === 'undefined' ? '—' : 'v' + APP_VERSION;
 
+  // ---- Резервна копія ----
+  $('exportBtn').onclick = async () => {
+    const data = {
+      app: 'todo-pwa', format: 1, exportedAt: new Date().toISOString(),
+      items, groups, settings,
+    };
+    const day = new Date().toLocaleDateString('sv-SE');
+    const name = `todo-${day}.json`;
+    const file = new File([JSON.stringify(data, null, 2)], name, { type: 'application/json' });
+    const note = $('dataNote');
+    // На телефоні — системне меню «Поділитися» (у додатку з головного екрана iPhone
+    // звичайне завантаження працює погано), на комп'ютері — завантаження файлу.
+    if (matchMedia('(pointer: coarse)').matches && navigator.canShare && navigator.canShare({ files: [file] })) {
+      try { await navigator.share({ files: [file], title: name }); note.textContent = 'Копію збережено.'; }
+      catch (e) { if (e.name !== 'AbortError') note.textContent = 'Не вдалося поділитися файлом.'; }
+      return;
+    }
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(file);
+    a.download = name;
+    document.body.append(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    note.textContent = `Збережено файл ${name}.`;
+  };
+
+  $('importBtn').onclick = () => { $('importFile').value = ''; $('importFile').click(); };
+  $('importFile').onchange = async () => {
+    const f = $('importFile').files[0];
+    if (!f) return;
+    const note = $('dataNote');
+    let data;
+    try { data = JSON.parse(await f.text()); } catch { note.textContent = 'Це не схоже на файл резервної копії.'; return; }
+    const okItem = (t) => t && typeof t === 'object' && typeof t.id === 'string' && typeof t.text === 'string';
+    const okGroup = (g) => g && typeof g === 'object' && typeof g.id === 'string' && typeof g.name === 'string' && typeof g.icon === 'string';
+    if (!data || !Array.isArray(data.items) || !data.items.every(okItem)
+      || (data.groups != null && (!Array.isArray(data.groups) || !data.groups.every(okGroup)))) {
+      note.textContent = 'Файл пошкоджений або має невідомий формат.';
+      return;
+    }
+    if (!confirm(`Замінити поточні задачі (${items.length}) задачами з файлу (${data.items.length})?`)) return;
+    items = data.items;
+    groups = data.groups || [];
+    save();
+    saveGroups();
+    if (data.settings && typeof data.settings === 'object') { settings = { ...settings, ...data.settings }; commitSettings(); }
+    dlg.close();
+    render();
+    toast(`Відновлено задач: ${items.length}`);
+  };
+
+  // Просимо браузер не видаляти дані сам (для встановленого додатка це зазвичай дозволяється без запиту).
+  if (standalone && navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+
+  // Зміни з іншої вкладки: підхоплюємо, щоб не перезаписати їх старими даними.
+  window.addEventListener('storage', (e) => {
+    if (e.key !== null && !e.key.startsWith('todo.')) return;
+    items = loadList(KEY);
+    groups = loadList(KEY_GROUPS);
+    collapsed = new Set(loadList(KEY_COLL));
+    showDone = loadStr(KEY_DONE) === '1';
+    addGroup = loadStr(KEY_ADD) || 'none';
+    settings = readSettings();
+    applySettings(settings);
+    render();
+  });
+
   $('refresh').onclick = async () => {
     const btn = $('refresh'), note = $('refreshNote');
     btn.disabled = true;
@@ -1164,12 +1315,30 @@
 
   render();
 
+  // Дата в заголовку: оновлюємо після півночі та при поверненні в додаток.
+  const today = () => new Date().toDateString();
+  let shownDay = today();
+  const refreshDay = () => { if (today() !== shownDay) { shownDay = today(); renderHeader(); } };
+  setInterval(refreshDay, 60000);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') refreshDay(); });
+
   if ('serviceWorker' in navigator) {
     const hadController = !!navigator.serviceWorker.controller;
-    let reloaded = false;
+    let pendingReload = false;
+    // Нова версія: перезавантажуємо лише тоді, коли це нічого не зіпсує —
+    // поле введення порожнє і жоден діалог не відкритий (або додаток згорнуто).
+    const tryReload = () => {
+      if (!pendingReload) return;
+      const busy = $('input').value.trim() || document.querySelector('dialog[open]');
+      if (document.visibilityState === 'hidden' || !busy) { pendingReload = false; location.reload(); }
+    };
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      if (hadController && !reloaded) { reloaded = true; location.reload(); }
+      if (hadController) { pendingReload = true; tryReload(); }
     });
+    document.addEventListener('visibilitychange', tryReload);
+    $('input').addEventListener('blur', tryReload);
+    for (const d of document.querySelectorAll('dialog')) d.addEventListener('close', tryReload);
+    $('form').addEventListener('submit', () => setTimeout(tryReload, 400));
     window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
   }
 </script>
