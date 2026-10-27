@@ -173,6 +173,18 @@
     background: var(--accent); color: #fff; display: grid; place-items: center;
   }
   .add:active { transform: scale(.95); }
+  .paste {
+    flex: none; width: 52px; padding: 0; border: 1px solid var(--border); border-radius: 12px;
+    background: var(--card); color: var(--muted); display: grid; place-items: center;
+  }
+  .lnk {
+    display: inline-flex; align-items: center; max-width: 100%; margin: 2px 0 2px 8px; padding: 2px 9px;
+    border: 1px solid var(--border); border-radius: 999px; background: var(--bg);
+    color: var(--accent); font-size: 13px; font-weight: 600; text-decoration: none; white-space: nowrap;
+    vertical-align: 1px;
+  }
+  .text > .lnk:first-child, .ftext > .lnk:first-child { margin-left: 0; }
+  .ftext .lnk { font-size: 17px; padding: 4px 12px; }
   .splitbar {
     position: absolute; left: 0; right: 0; bottom: 100%; margin: 0 0 4px; padding: 8px 8px 8px 12px;
     display: flex; align-items: center; gap: 8px;
@@ -329,6 +341,9 @@
         <button type="button" class="link" id="splitToggle"></button>
       </div>
       <input id="input" type="text" placeholder="Що потрібно зробити?" maxlength="1000" aria-label="Нова задача">
+      <button class="paste" type="button" id="paste" aria-label="Вставити з буфера" hidden>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="3" width="8" height="4" rx="1"/><path d="M16 5h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2"/></svg>
+      </button>
       <button class="add" type="submit" aria-label="Додати">
         <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
       </button>
@@ -458,6 +473,8 @@
     { name: 'Магазин', icon: '🛒' },
     { name: 'Робота', icon: '💼' },
     { name: 'Служба', icon: '🎖️' },
+    { name: 'Рецепти', icon: '🍳' },
+    { name: 'Фільми', icon: '🎬' },
   ];
   const $ = (id) => document.getElementById(id);
 
@@ -615,7 +632,7 @@
     row.addEventListener('pointercancel', (e) => { if (e.pointerId === id) reset(); });
     row.addEventListener('click', (e) => {
       if (e.target.closest('.check')) return;
-      if (row._moved) { row._moved = false; return; }
+      if (row._moved) { row._moved = false; e.preventDefault(); return; }
       openTask(t);
     });
   }
@@ -645,7 +662,7 @@
 
     const text = document.createElement('span');
     text.className = 'text';
-    text.textContent = t.text;
+    fillText(text, t.text);
     // Доступ з клавіатури: Enter/пробіл відкриває задачу (там є і «В архів»).
     text.tabIndex = 0;
     text.setAttribute('role', 'button');
@@ -818,7 +835,7 @@
     }
     const p = document.createElement('p');
     p.className = 'ftext';
-    p.textContent = t.text;
+    fillText(p, t.text);
     fcard.append(p);
     if (lastFocusId !== t.id) fcard.classList.add('again');
     lastFocusId = t.id;
@@ -835,7 +852,7 @@
       const g = t.group ? groupById(t.group) : null;
       const text = document.createElement('span');
       text.className = 'text';
-      text.textContent = (g ? g.icon + ' ' : '') + t.text;
+      fillText(text, t.text, g ? g.icon + ' ' : '');
 
       const btns = document.createElement('div');
       btns.className = 'abtns';
@@ -1039,7 +1056,7 @@
 
   $('form').addEventListener('submit', (e) => {
     e.preventDefault();
-    const raw = $('input').value.trim();
+    const raw = cleanLinks($('input').value.trim());
     if (!raw) return;
     let parts = [raw];
     if (settings.split && !noSplit) {
@@ -1137,15 +1154,72 @@
   const DOT = '․';
 
   function parseTasks(text) {
+    // Посилання ховаємо на час розбиття, щоб коми й крапки в них нічого не різали.
+    const urls = [];
+    const MARK = '⁣';
     return text
+      .replace(URL_RE, (u) => { urls.push(u); return `${MARK}${urls.length - 1}${MARK}`; })
       .replace(/(^|\s)(?:крапка з комою|кома)(?=[\s,.;]|$)/gi, ',')
       .replace(ABBR, `$1$2${DOT}`)
       // Кома між цифрами («0,5 кг», «2,5%») — десятковий дріб, а не роздільник.
       .split(/[;\n]+|,(?!\d)|\.(?=\s|$)/)
-      .map((s) => s.replaceAll(DOT, '.').replace(/^[,\s]+|[,\s]+$/g, ''))
+      .map((s) => s.replaceAll(DOT, '.').replace(/^[,\s]+|[,\s]+$/g, '')
+        .replace(new RegExp(`${MARK}(\\d+)${MARK}`, 'g'), (_, i) => urls[i]))
       .filter(Boolean);
   }
-  const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+  const cap = (s) => /^https?:/i.test(s) ? s : s.charAt(0).toUpperCase() + s.slice(1);
+
+  // ---- Посилання ----
+  // Останній символ не може бути розділовим знаком: «дивись https://x.com/a.» → без крапки.
+  const URL_RE = /https?:\/\/[^\s<>"']*[^\s<>"'.,;:!?)»]/gi;
+  const SITES = {
+    'instagram.com': 'Instagram', 'youtube.com': 'YouTube', 'youtu.be': 'YouTube',
+    'tiktok.com': 'TikTok', 'facebook.com': 'Facebook', 'imdb.com': 'IMDb',
+    'letterboxd.com': 'Letterboxd', 'netflix.com': 'Netflix', 'kinopoisk.ru': 'Кінопошук',
+    'megogo.net': 'MEGOGO', 't.me': 'Telegram', 'x.com': 'X', 'twitter.com': 'X',
+    'pinterest.com': 'Pinterest', 'pin.it': 'Pinterest', 'spotify.com': 'Spotify',
+    'open.spotify.com': 'Spotify', 'reddit.com': 'Reddit', 'wikipedia.org': 'Wikipedia',
+  };
+
+  function siteName(u) {
+    try {
+      const h = new URL(u).hostname.replace(/^(www|m)\./, '');
+      if (SITES[h]) return SITES[h];
+      const base = h.split('.').slice(-2).join('.');
+      return SITES[base] || h;
+    } catch { return 'Посилання'; }
+  }
+
+  // Прибираємо трекінгові параметри, з якими діляться посиланнями (igsh, utm_…, si).
+  function cleanLink(u) {
+    try {
+      const x = new URL(u);
+      for (const k of [...x.searchParams.keys()]) {
+        if (/^(utm_|igsh|igshid$|si$|fbclid$|gclid$|feature$)/.test(k)) x.searchParams.delete(k);
+      }
+      return x.toString();
+    } catch { return u; }
+  }
+  const cleanLinks = (s) => s.replace(URL_RE, cleanLink);
+
+  // Текст задачі: звичайні слова + посилання у вигляді кнопок «↗ Instagram».
+  function fillText(el, text, prefix = '') {
+    el.textContent = '';
+    const urls = text.match(URL_RE) || [];
+    const plain = text.replace(URL_RE, ' ').replace(/\s{2,}/g, ' ').trim();
+    if (prefix || plain) el.append(prefix + plain);
+    for (const u of urls) {
+      const a = document.createElement('a');
+      a.className = 'lnk';
+      a.href = u;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      a.textContent = '↗ ' + siteName(u);
+      a.title = u;
+      a.addEventListener('click', (e) => e.stopPropagation());
+      el.append(a);
+    }
+  }
 
   function updateSplitBar() {
     const p = settings.split ? parseTasks($('input').value) : [];
@@ -1160,7 +1234,27 @@
     $('splitToggle').textContent = noSplit ? 'Ділити' : 'Не ділити';
   }
 
+  // Кнопка «Вставити»: видно, лише коли поле порожнє, а браузер дозволяє читати буфер.
+  const canPaste = !!(navigator.clipboard && navigator.clipboard.readText);
+  const updatePaste = () => { $('paste').hidden = !canPaste || !!$('input').value; };
+  $('paste').onclick = async () => {
+    let text = '';
+    try { text = (await navigator.clipboard.readText()).trim(); } catch {}
+    const input = $('input');
+    if (!text) { toast('Буфер обміну порожній — скопіюйте посилання'); input.focus(); return; }
+    text = cleanLinks(text);
+    // Для посилання лишаємо місце для підпису на початку: «Паста з креветками https://…»
+    const isLink = /^https?:\/\/\S+$/i.test(text);
+    input.value = isLink ? ' ' + text : text;
+    updateSplitBar();
+    updatePaste();
+    input.focus();
+    if (isLink) input.setSelectionRange(0, 0);
+  };
   $('input').addEventListener('input', updateSplitBar);
+  $('input').addEventListener('input', updatePaste);
+  $('form').addEventListener('submit', () => setTimeout(updatePaste));
+  updatePaste();
   $('splitToggle').onclick = () => { noSplit = !noSplit; updateSplitBar(); };
 
   const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
