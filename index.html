@@ -91,7 +91,7 @@
   button { font: inherit; cursor: pointer; color: inherit; }
 
   header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
-  h1 { margin: 0; font-size: 28px; }
+  h1 { margin: 0; font-size: 28px; word-break: break-word; }
   .date { margin: 0; color: var(--muted); font-size: 14px; }
   .date::first-letter { text-transform: uppercase; }
   .sub { margin: 2px 0 0; color: var(--muted); font-size: 14px; }
@@ -99,7 +99,7 @@
   .ring .track { stroke: var(--border); }
   .ring .bar { stroke: var(--accent); transition: stroke-dashoffset .5s ease; }
   .ring text { fill: var(--text); font-size: 15px; font-weight: 600; }
-  .hright { display: flex; align-items: center; gap: 10px; }
+  .hright { display: flex; align-items: center; gap: 10px; flex: none; }
   .gear {
     width: 40px; height: 40px; padding: 0; display: grid; place-items: center;
     border: 1px solid var(--border); border-radius: 12px; background: var(--card); color: var(--muted);
@@ -112,11 +112,13 @@
   dialog::backdrop { background: rgba(0, 0, 0, .5); }
   .sheet { padding: 20px 16px calc(16px + env(safe-area-inset-bottom)); }
   .sheet h2 { margin: 0 0 4px; font-size: 20px; }
+  .sheet input[type="text"] { width: 100%; background: var(--bg); }
   .slabel { margin: 16px 0 8px; color: var(--muted); font-size: 13px; }
   .vrow { display: flex; justify-content: space-between; padding: 10px 2px; font-size: 15px; border-bottom: 1px solid var(--border); }
   .vrow span:last-child { color: var(--muted); }
   .fbtn:disabled { opacity: .6; }
   .note { margin: 10px 0 0; color: var(--muted); font-size: 12px; line-height: 1.4; }
+  .err { margin: 6px 0 0; color: var(--danger); font-size: 13px; min-height: 0; }
   .swatches { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
   .sw {
     display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 4px;
@@ -126,10 +128,24 @@
   .sw .dot { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-weight: 700; }
   .sheet .seg { background: var(--bg); margin-bottom: 0; }
 
-  .seg { display: flex; gap: 4px; padding: 4px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 16px; }
+  .seg { display: flex; gap: 4px; padding: 4px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 12px; }
   .seg button[data-view], .seg button[data-mode] { flex: 1; padding: 8px 4px; border: 0; border-radius: 9px; background: none; color: var(--muted); font-weight: 500; white-space: nowrap; }
   .seg button.active { background: var(--accent); color: #fff; }
   .seg .fs { flex: none; width: 40px; border: 0; border-radius: 9px; background: none; color: var(--muted); display: grid; place-items: center; padding: 0; }
+
+  .chips {
+    display: flex; gap: 8px; overflow-x: auto; margin: 0 -16px 14px; padding: 2px 16px;
+    scrollbar-width: none;
+  }
+  .chips::-webkit-scrollbar { display: none; }
+  .chip {
+    flex: none; display: inline-flex; align-items: center; gap: 6px; padding: 8px 13px;
+    border: 1px solid var(--border); border-radius: 999px; background: var(--card); font-size: 14px; white-space: nowrap;
+  }
+  .chip.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .chip .n { font-size: 12px; color: var(--muted); }
+  .chip.on .n { color: #fff; opacity: .85; }
+  .chip.manage { color: var(--muted); border-style: dashed; background: none; }
 
   form {
     display: flex; gap: 8px; margin-top: auto;
@@ -180,6 +196,7 @@
   .done .check { background: var(--accent); border-color: var(--accent); }
   .text { flex: 1; word-break: break-word; }
   .done .text { color: var(--muted); text-decoration: line-through; }
+  .gb { flex: none; font-size: 17px; }
   .empty, .hint { text-align: center; color: var(--muted); font-size: 14px; }
   .empty { padding: 32px 0; font-size: 16px; }
   .hint { margin: 14px 0 0; }
@@ -191,18 +208,31 @@
     margin: 16px 0 8px; padding: 10px 4px; border: 0; background: none; color: var(--muted); font-weight: 500;
   }
 
-  .arow { display: block; }
+  .arow { display: block; margin-bottom: 8px; padding: 14px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; }
   .arow .text { display: block; margin-bottom: 10px; }
   .abtns { display: flex; gap: 8px; }
   .abtns button { flex: 1; padding: 9px; border-radius: 10px; border: 1px solid var(--border); background: var(--card); font-size: 14px; }
   .abtns .del { color: var(--danger); border-color: var(--danger); }
-  .arow { margin-bottom: 8px; padding: 14px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; }
+
+  .grow { display: flex; align-items: center; gap: 10px; padding: 10px 2px; border-bottom: 1px solid var(--border); }
+  .gico { flex: none; width: 32px; text-align: center; font-size: 22px; }
+  .gname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .gbtn { flex: none; padding: 6px 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--card); font-size: 13px; }
+  .gbtn.del { color: var(--danger); }
+  .presets { display: flex; flex-wrap: wrap; gap: 8px; }
+  .icons { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+  .ic { padding: 8px 0; font-size: 22px; line-height: 1.2; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); }
+  .ic.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .tgroups { display: flex; flex-wrap: wrap; gap: 8px; }
+  .twrap { display: flex; gap: 8px; margin-top: 16px; }
+  .twrap .fbtn { margin-top: 0; }
 
   .focus { display: flex; flex-direction: column; min-height: 60dvh; }
   .fcount { margin: 0; color: var(--muted); font-size: 14px; }
   .fbar { height: 4px; border-radius: 2px; background: var(--border); margin: 10px 0 0; overflow: hidden; }
   .fbar i { display: block; height: 100%; background: var(--accent); transition: width .4s ease; }
   .fcard { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 12px; padding: 24px 4px; }
+  .fgroup { margin: 0; color: var(--muted); font-size: 15px; }
   .ftext { margin: 0; font-size: 30px; line-height: 1.2; font-weight: 600; word-break: break-word; }
   .fcard.again .ftext { animation: pop .3s ease-out; }
   .fall { text-align: center; }
@@ -216,7 +246,7 @@
 <main>
   <header>
     <div>
-      <h1>Сьогодні</h1>
+      <h1 id="title">Сьогодні</h1>
       <p class="date" id="date"></p>
       <p class="sub" id="sub"></p>
     </div>
@@ -241,10 +271,12 @@
     </button>
   </div>
 
+  <div class="chips" id="chips"></div>
+
   <section id="listView">
     <ul id="list"></ul>
     <p class="empty" id="empty" hidden></p>
-    <p class="hint" id="hint" hidden>Свайп вправо — готово, вліво — в архів</p>
+    <p class="hint" id="hint" hidden>Свайп вправо — готово, вліво — в архів. Тап по задачі — змінити.</p>
 
     <div id="doneBox" hidden>
       <button class="donehead" id="donehead"><span id="donetitle"></span><span id="donearrow">▾</span></button>
@@ -302,35 +334,100 @@
   </div>
 </dialog>
 
+<dialog id="groupsDlg" aria-label="Групи">
+  <div class="sheet">
+    <h2 id="gtitle">Групи</h2>
+
+    <div id="glist">
+      <div id="grows"></div>
+      <p class="note" id="gempty">Груп ще немає. Створіть свою або додайте готову нижче.</p>
+      <div id="gpresetsBox">
+        <p class="slabel">Швидко додати</p>
+        <div class="presets" id="gpresets"></div>
+      </div>
+      <button class="fbtn ghost" id="gnew" style="margin-top:16px">Нова група</button>
+      <button class="fbtn primary" id="gclose">Готово</button>
+    </div>
+
+    <div id="gedit" hidden>
+      <p class="slabel">Назва</p>
+      <input id="gname" type="text" maxlength="30" placeholder="Наприклад, Спорт" aria-label="Назва групи">
+      <p class="slabel">Значок</p>
+      <div class="icons" id="gicons"></div>
+      <p class="slabel">Або свій емодзі</p>
+      <input id="gcustom" type="text" maxlength="12" placeholder="🚀" aria-label="Свій емодзі">
+      <p class="err" id="gerr"></p>
+      <div class="twrap">
+        <button class="fbtn ghost" id="gcancel">Скасувати</button>
+        <button class="fbtn primary" id="gsave">Зберегти</button>
+      </div>
+    </div>
+  </div>
+</dialog>
+
+<dialog id="taskDlg" aria-label="Задача">
+  <div class="sheet">
+    <h2>Задача</h2>
+    <p class="slabel">Текст</p>
+    <input id="tinput" type="text" maxlength="200" aria-label="Текст задачі">
+    <p class="err" id="terr"></p>
+    <p class="slabel">Група</p>
+    <div class="tgroups" id="tgroups"></div>
+    <div class="twrap">
+      <button class="fbtn ghost" id="tcancel">Скасувати</button>
+      <button class="fbtn primary" id="tsave">Зберегти</button>
+    </div>
+  </div>
+</dialog>
+
 <script>
   const KEY = 'todo.items.v1';
+  const KEY_GROUPS = 'todo.groups.v1';
+  const KEY_GROUP = 'todo.group';
   const KEY_DONE = 'todo.showDone';
   const SWIPE = 90;
   const CIRC = 2 * Math.PI * 26;
+  const ICONS = ['🛒', '💼', '🌱', '🎖️', '🏠', '📚', '🎯', '💪', '✈️', '💰', '🎓', '🍎',
+    '🧹', '❤️', '⭐', '🔧', '🎮', '🎵', '📞', '🚗', '🐶', '🍳', '🧘', '🎬', '📝', '💊', '⚽', '🎁'];
+  const PRESETS = [
+    { name: 'Саморозвиток', icon: '🌱' },
+    { name: 'Магазин', icon: '🛒' },
+    { name: 'Робота', icon: '💼' },
+    { name: 'Служба', icon: '🎖️' },
+  ];
   const $ = (id) => document.getElementById(id);
 
-  let items = load();
-  let view = 'list';
-  let justAdded = null;
-  let showDone = loadFlag(KEY_DONE);
-
-  function load() {
-    try { return JSON.parse(localStorage.getItem(KEY)) || []; }
+  function loadList(k) {
+    try { const v = JSON.parse(localStorage.getItem(k)); return Array.isArray(v) ? v : []; }
     catch { return []; }
   }
-  function save() {
-    try { localStorage.setItem(KEY, JSON.stringify(items)); } catch {}
+  function saveJSON(k, v) {
+    try { localStorage.setItem(k, JSON.stringify(v)); } catch {}
   }
-  function loadFlag(k) {
-    try { return localStorage.getItem(k) === '1'; } catch { return false; }
+  function loadStr(k) {
+    try { return localStorage.getItem(k); } catch { return null; }
   }
-  function saveFlag(k, v) {
-    try { localStorage.setItem(k, v ? '1' : '0'); } catch {}
+  function saveStr(k, v) {
+    try { localStorage.setItem(k, v); } catch {}
   }
+  const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+
+  let items = loadList(KEY);
+  let groups = loadList(KEY_GROUPS);
+  let currentGroup = loadStr(KEY_GROUP) || 'all';
+  if (currentGroup !== 'all' && !groups.some((g) => g.id === currentGroup)) currentGroup = 'all';
+  let view = 'list';
+  let justAdded = null;
+  let showDone = loadStr(KEY_DONE) === '1';
+
+  const save = () => saveJSON(KEY, items);
+  const saveGroups = () => saveJSON(KEY_GROUPS, groups);
+  const groupById = (id) => groups.find((g) => g.id === id);
 
   const live = () => items.filter((t) => !t.archived);
-  const active = () => live().filter((t) => !t.done);
-  const finished = () => live().filter((t) => t.done);
+  const scope = () => live().filter((t) => currentGroup === 'all' || t.group === currentGroup);
+  const active = () => scope().filter((t) => !t.done);
+  const finished = () => scope().filter((t) => t.done);
   const archived = () => items.filter((t) => t.archived).sort((a, b) => (b.archivedAt || 0) - (a.archivedAt || 0));
 
   function buzz(ms) { if (navigator.vibrate) navigator.vibrate(ms); }
@@ -386,6 +483,7 @@
     };
 
     row.addEventListener('pointerdown', (e) => {
+      row._moved = false;
       if (e.target.closest('.check')) return;
       sx = e.clientX; sy = e.clientY; dx = 0; id = e.pointerId; dragging = false;
     });
@@ -395,6 +493,7 @@
       if (!dragging) {
         if (Math.abs(dx) < 8 || Math.abs(dx) < Math.abs(e.clientY - sy)) return;
         dragging = true;
+        row._moved = true;
         row.setPointerCapture(id);
         row.classList.add('drag');
       }
@@ -410,6 +509,11 @@
     };
     row.addEventListener('pointerup', end);
     row.addEventListener('pointercancel', (e) => { if (e.pointerId === id) reset(); });
+    row.addEventListener('click', (e) => {
+      if (e.target.closest('.check')) return;
+      if (row._moved) { row._moved = false; return; }
+      openTask(t);
+    });
   }
 
   function makeRow(t) {
@@ -440,13 +544,56 @@
     text.textContent = t.text;
 
     row.append(check, text);
+
+    const g = currentGroup === 'all' && t.group ? groupById(t.group) : null;
+    if (g) {
+      const badge = document.createElement('span');
+      badge.className = 'gb';
+      badge.textContent = g.icon;
+      badge.title = g.name;
+      row.append(badge);
+    }
+
     li.append(bg, row);
     attachSwipe(li, row, t);
     return li;
   }
 
+  function selectGroup(id) {
+    currentGroup = id;
+    saveStr(KEY_GROUP, id);
+    lastFocusId = null;
+    render();
+  }
+
+  function renderChips() {
+    const bar = $('chips');
+    bar.textContent = '';
+    const chip = (icon, label, count, on, fn, cls) => {
+      const b = document.createElement('button');
+      b.className = 'chip' + (on ? ' on' : '') + (cls ? ' ' + cls : '');
+      if (icon) { const i = document.createElement('span'); i.textContent = icon; b.append(i); }
+      const s = document.createElement('span');
+      s.textContent = label;
+      b.append(s);
+      if (count) { const n = document.createElement('span'); n.className = 'n'; n.textContent = count; b.append(n); }
+      b.onclick = fn;
+      bar.append(b);
+    };
+    const open = live().filter((t) => !t.done);
+    chip('', 'Усі', open.length, currentGroup === 'all', () => selectGroup('all'));
+    for (const g of groups) {
+      chip(g.icon, g.name, open.filter((t) => t.group === g.id).length, currentGroup === g.id, () => selectGroup(g.id));
+    }
+    chip('+', groups.length ? 'Групи' : 'Додати групу', 0, false, openGroups, 'manage');
+  }
+
   function renderHeader() {
-    const all = live();
+    const g = currentGroup === 'all' ? null : groupById(currentGroup);
+    $('title').textContent = g ? `${g.icon} ${g.name}` : 'Сьогодні';
+    $('input').placeholder = g ? `Що додати в «${g.name}»?` : 'Що потрібно зробити?';
+
+    const all = scope();
     const done = finished().length;
     const ratio = all.length ? done / all.length : 0;
     $('bar').style.strokeDasharray = CIRC;
@@ -479,18 +626,19 @@
     $('donearrow').textContent = showDone ? '▴' : '▾';
     $('donebody').hidden = !showDone;
 
-    const empty = $('empty');
-    const all = live().length;
-    empty.hidden = active().length > 0;
-    empty.textContent = all === 0 ? 'Поки що порожньо — додайте першу задачу' : 'Усе зроблено — так тримати!';
-    $('hint').hidden = all === 0;
+    const total = scope().length;
+    $('empty').hidden = active().length > 0;
+    $('empty').textContent = total === 0
+      ? (currentGroup === 'all' ? 'Поки що порожньо — додайте першу задачу' : 'У цій групі поки порожньо — додайте задачу')
+      : 'Усе зроблено — так тримати!';
+    $('hint').hidden = total === 0;
   }
 
   let lastFocusId = null;
   function renderFocus() {
     const todo = active();
     const fcard = $('fcard');
-    const total = live().length;
+    const total = scope().length;
     const done = total - todo.length;
     $('fbar').style.width = (total ? (done / total) * 100 : 0) + '%';
     fcard.textContent = '';
@@ -516,6 +664,13 @@
     $('flater').hidden = todo.length < 2;
     $('fcount').textContent = `Фокус · залишилось ${todo.length}`;
     const t = todo[0];
+    const g = t.group ? groupById(t.group) : null;
+    if (g) {
+      const gl = document.createElement('p');
+      gl.className = 'fgroup';
+      gl.textContent = `${g.icon} ${g.name}`;
+      fcard.append(gl);
+    }
     const p = document.createElement('p');
     p.className = 'ftext';
     p.textContent = t.text;
@@ -532,9 +687,10 @@
       const li = document.createElement('li');
       li.className = 'arow' + (t.done ? ' done' : '');
 
+      const g = t.group ? groupById(t.group) : null;
       const text = document.createElement('span');
       text.className = 'text';
-      text.textContent = t.text;
+      text.textContent = (g ? g.icon + ' ' : '') + t.text;
 
       const btns = document.createElement('div');
       btns.className = 'abtns';
@@ -563,6 +719,8 @@
 
   function render() {
     renderHeader();
+    renderChips();
+    $('chips').hidden = view === 'archive';
     $('listView').hidden = view !== 'list';
     $('focusView').hidden = view !== 'focus';
     $('archView').hidden = view !== 'archive';
@@ -574,13 +732,158 @@
     else renderArchive();
   }
 
+  const bindBackdrop = (d) => d.addEventListener('click', (e) => { if (e.target === d) d.close(); });
+
+  let gedit = null;
+
+  function firstGlyph(s) {
+    s = s.trim();
+    if (!s) return '';
+    if (typeof Intl !== 'undefined' && Intl.Segmenter) {
+      for (const part of new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(s)) return part.segment;
+    }
+    return Array.from(s)[0];
+  }
+
+  function openGroups() {
+    gedit = null;
+    renderGroups();
+    $('groupsDlg').showModal();
+  }
+
+  function startEdit(g) {
+    gedit = g ? { id: g.id, name: g.name, icon: g.icon } : { id: null, name: '', icon: '⭐' };
+    $('gname').value = gedit.name;
+    $('gcustom').value = '';
+    $('gerr').textContent = '';
+    renderGroups();
+  }
+
+  function renderGroupIcons() {
+    const box = $('gicons');
+    box.textContent = '';
+    for (const ic of ICONS) {
+      const b = document.createElement('button');
+      b.className = 'ic' + (ic === gedit.icon ? ' on' : '');
+      b.textContent = ic;
+      b.onclick = () => { gedit.icon = ic; $('gcustom').value = ''; renderGroupIcons(); };
+      box.append(b);
+    }
+  }
+
+  function renderGroups() {
+    const editing = gedit !== null;
+    $('glist').hidden = editing;
+    $('gedit').hidden = !editing;
+    $('gtitle').textContent = editing ? (gedit.id ? 'Змінити групу' : 'Нова група') : 'Групи';
+    if (editing) { renderGroupIcons(); return; }
+
+    const rows = $('grows');
+    rows.textContent = '';
+    for (const g of groups) {
+      const row = document.createElement('div');
+      row.className = 'grow';
+      const ico = document.createElement('span');
+      ico.className = 'gico';
+      ico.textContent = g.icon;
+      const name = document.createElement('span');
+      name.className = 'gname';
+      name.textContent = g.name;
+      const edit = document.createElement('button');
+      edit.className = 'gbtn';
+      edit.textContent = 'Змінити';
+      edit.onclick = () => startEdit(g);
+      const del = document.createElement('button');
+      del.className = 'gbtn del';
+      del.textContent = 'Видалити';
+      del.onclick = () => deleteGroup(g);
+      row.append(ico, name, edit, del);
+      rows.append(row);
+    }
+    $('gempty').hidden = groups.length > 0;
+
+    const missing = PRESETS.filter((p) => !groups.some((g) => g.name === p.name));
+    $('gpresetsBox').hidden = missing.length === 0;
+    const box = $('gpresets');
+    box.textContent = '';
+    for (const p of missing) {
+      const b = document.createElement('button');
+      b.className = 'chip';
+      b.textContent = `${p.icon} ${p.name}`;
+      b.onclick = () => { groups.push({ id: uid(), name: p.name, icon: p.icon }); saveGroups(); render(); renderGroups(); };
+      box.append(b);
+    }
+  }
+
+  function saveGroup() {
+    const name = $('gname').value.trim();
+    if (!name) { $('gerr').textContent = 'Введіть назву групи'; return; }
+    gedit.name = name;
+    if (gedit.id) {
+      const g = groupById(gedit.id);
+      if (g) { g.name = gedit.name; g.icon = gedit.icon; }
+    } else {
+      groups.push({ id: uid(), name: gedit.name, icon: gedit.icon });
+    }
+    saveGroups();
+    gedit = null;
+    render();
+    renderGroups();
+  }
+
+  function deleteGroup(g) {
+    if (!confirm(`Видалити групу «${g.name}»? Задачі залишаться, але без групи.`)) return;
+    groups = groups.filter((x) => x.id !== g.id);
+    for (const t of items) if (t.group === g.id) delete t.group;
+    if (currentGroup === g.id) { currentGroup = 'all'; saveStr(KEY_GROUP, 'all'); }
+    saveGroups();
+    save();
+    render();
+    renderGroups();
+  }
+
+  let tedit = null;
+
+  function openTask(t) {
+    tedit = { t, group: t.group && groupById(t.group) ? t.group : null };
+    $('tinput').value = t.text;
+    $('terr').textContent = '';
+    renderTaskGroups();
+    $('taskDlg').showModal();
+  }
+
+  function renderTaskGroups() {
+    const box = $('tgroups');
+    box.textContent = '';
+    const opt = (icon, label, id) => {
+      const b = document.createElement('button');
+      b.className = 'chip' + (tedit.group === id ? ' on' : '');
+      b.textContent = icon ? `${icon} ${label}` : label;
+      b.onclick = () => { tedit.group = id; renderTaskGroups(); };
+      box.append(b);
+    };
+    opt('', 'Без групи', null);
+    for (const g of groups) opt(g.icon, g.name, g.id);
+  }
+
+  function saveTask() {
+    const text = $('tinput').value.trim();
+    if (!text) { $('terr').textContent = 'Введіть текст задачі'; return; }
+    tedit.t.text = text;
+    if (tedit.group) tedit.t.group = tedit.group; else delete tedit.t.group;
+    save();
+    $('taskDlg').close();
+    render();
+  }
+
   $('form').addEventListener('submit', (e) => {
     e.preventDefault();
     const text = $('input').value.trim();
     if (!text) return;
-    const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-    items.push({ id, text, done: false });
-    justAdded = id;
+    const t = { id: uid(), text, done: false };
+    if (currentGroup !== 'all') t.group = currentGroup;
+    items.push(t);
+    justAdded = t.id;
     $('input').value = '';
     save();
     render();
@@ -591,7 +894,7 @@
     if (v) { view = v; lastFocusId = null; render(); }
   });
 
-  $('donehead').onclick = () => { showDone = !showDone; saveFlag(KEY_DONE, showDone); render(); };
+  $('donehead').onclick = () => { showDone = !showDone; saveStr(KEY_DONE, showDone ? '1' : '0'); render(); };
 
   $('archiveDone').onclick = () => {
     const now = Date.now();
@@ -618,6 +921,23 @@
     save();
     render();
   };
+
+  $('gnew').onclick = () => startEdit(null);
+  $('gclose').onclick = () => $('groupsDlg').close();
+  $('gcancel').onclick = () => { gedit = null; renderGroups(); };
+  $('gsave').onclick = saveGroup;
+  $('gname').addEventListener('keydown', (e) => { if (e.key === 'Enter') saveGroup(); });
+  $('gname').addEventListener('input', () => { $('gerr').textContent = ''; });
+  $('gcustom').addEventListener('input', () => {
+    const g = firstGlyph($('gcustom').value);
+    if (g) { gedit.icon = g; renderGroupIcons(); }
+  });
+  $('tcancel').onclick = () => $('taskDlg').close();
+  $('tsave').onclick = saveTask;
+  $('tinput').addEventListener('keydown', (e) => { if (e.key === 'Enter') saveTask(); });
+  $('tinput').addEventListener('input', () => { $('terr').textContent = ''; });
+  bindBackdrop($('groupsDlg'));
+  bindBackdrop($('taskDlg'));
 
   const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
   if (document.fullscreenEnabled && !standalone) {
@@ -669,7 +989,7 @@
 
   $('gear').onclick = () => { renderSettings(); dlg.showModal(); };
   $('sclose').onclick = () => dlg.close();
-  dlg.addEventListener('click', (e) => { if (e.target === dlg) dlg.close(); });
+  bindBackdrop(dlg);
   $('modes').addEventListener('click', (e) => {
     const m = e.target.closest('button[data-mode]')?.dataset.mode;
     if (m) { settings.mode = m; commitSettings(); }
