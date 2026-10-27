@@ -173,10 +173,9 @@
     background: var(--accent); color: #fff; display: grid; place-items: center;
   }
   .add:active { transform: scale(.95); }
-  .paste {
-    flex: none; width: 52px; padding: 0; border: 1px solid var(--border); border-radius: 12px;
-    background: var(--card); color: var(--muted); display: grid; place-items: center;
-  }
+  /* Довге натискання «+» вставляє з буфера: прибираємо системне меню/виділення на кнопці. */
+  .add { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; transition: transform .15s ease; }
+  .add.hold { transform: scale(.88); }
   .lnk {
     display: inline-flex; align-items: center; max-width: 100%; margin: 2px 0 2px 8px; padding: 2px 9px;
     border: 1px solid var(--border); border-radius: 999px; background: var(--bg);
@@ -324,7 +323,7 @@
     <ul id="list"></ul>
     <button class="link" id="addGroupBtn"></button>
     <p class="empty" id="empty" hidden></p>
-    <p class="hint" id="hint" hidden>Свайп вправо — готово, вліво — в архів. Тап по задачі — змінити.</p>
+    <p class="hint" id="hint" hidden>Свайп вправо — готово, вліво — в архів. Тап по задачі — змінити. Утримуйте «+», щоб вставити посилання.</p>
 
     <div id="doneBox" hidden>
       <button class="donehead" id="donehead"><span id="donetitle"></span><span id="donearrow">▾</span></button>
@@ -341,9 +340,6 @@
         <button type="button" class="link" id="splitToggle"></button>
       </div>
       <input id="input" type="text" placeholder="Що потрібно зробити?" maxlength="1000" aria-label="Нова задача">
-      <button class="paste" type="button" id="paste" aria-label="Вставити з буфера" hidden>
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="3" width="8" height="4" rx="1"/><path d="M16 5h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2"/></svg>
-      </button>
       <button class="add" type="submit" aria-label="Додати">
         <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
       </button>
@@ -1234,27 +1230,46 @@
     $('splitToggle').textContent = noSplit ? 'Ділити' : 'Не ділити';
   }
 
-  // Кнопка «Вставити»: видно, лише коли поле порожнє, а браузер дозволяє читати буфер.
-  const canPaste = !!(navigator.clipboard && navigator.clipboard.readText);
-  const updatePaste = () => { $('paste').hidden = !canPaste || !!$('input').value; };
-  $('paste').onclick = async () => {
-    let text = '';
-    try { text = (await navigator.clipboard.readText()).trim(); } catch {}
+  // Вставка з буфера: утримати «+» і відпустити. Читаємо буфер саме в click —
+  // iOS дозволяє це лише у відповідь на дію користувача й сам показує «Вставити».
+  async function pasteFromClipboard() {
     const input = $('input');
-    if (!text) { toast('Буфер обміну порожній — скопіюйте посилання'); input.focus(); return; }
+    if (!navigator.clipboard || !navigator.clipboard.readText) { input.focus(); return; }
+    let text;
+    try { text = (await navigator.clipboard.readText()).trim(); }
+    catch { return; } // користувач закрив меню «Вставити» — нічого не робимо
+    if (!text) { toast('Буфер обміну порожній — скопіюйте посилання'); return; }
     text = cleanLinks(text);
-    // Для посилання лишаємо місце для підпису на початку: «Паста з креветками https://…»
-    const isLink = /^https?:\/\/\S+$/i.test(text);
-    input.value = isLink ? ' ' + text : text;
+    const cur = input.value.trim();
+    // Для самого посилання лишаємо місце для підпису: «Паста з креветками https://…»
+    const isLink = !cur && /^https?:\/\/\S+$/i.test(text);
+    input.value = isLink ? ' ' + text : (cur ? cur + ' ' + text : text);
     updateSplitBar();
-    updatePaste();
     input.focus();
-    if (isLink) input.setSelectionRange(0, 0);
-  };
+    const pos = isLink ? 0 : input.value.length;
+    input.setSelectionRange(pos, pos);
+  }
+
+  const HOLD_MS = 450;
+  let holdTimer = null, held = false;
+  const addBtn = document.querySelector('.add');
+  const stopHold = () => { clearTimeout(holdTimer); addBtn.classList.remove('hold'); };
+  addBtn.addEventListener('pointerdown', () => {
+    held = false;
+    addBtn.classList.add('hold');
+    holdTimer = setTimeout(() => { held = true; buzz(10); }, HOLD_MS);
+  });
+  addBtn.addEventListener('pointerup', stopHold);
+  addBtn.addEventListener('pointerleave', () => { stopHold(); });
+  addBtn.addEventListener('pointercancel', () => { stopHold(); held = false; });
+  addBtn.addEventListener('contextmenu', (e) => e.preventDefault());
+  addBtn.addEventListener('click', (e) => {
+    if (!held) return; // звичайний тап — додає задачу як раніше
+    held = false;
+    e.preventDefault();
+    pasteFromClipboard();
+  });
   $('input').addEventListener('input', updateSplitBar);
-  $('input').addEventListener('input', updatePaste);
-  $('form').addEventListener('submit', () => setTimeout(updatePaste));
-  updatePaste();
   $('splitToggle').onclick = () => { noSplit = !noSplit; updateSplitBar(); };
 
   const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
