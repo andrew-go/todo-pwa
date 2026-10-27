@@ -173,6 +173,20 @@
     background: var(--accent); color: #fff; display: grid; place-items: center;
   }
   .add:active { transform: scale(.95); }
+  .inwrap { position: relative; flex: 1; min-width: 0; display: flex; }
+  .inwrap input[type="text"] { width: 100%; padding-right: 50px; }
+  .mic {
+    position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+    width: 40px; height: 40px; padding: 0; border: 0; border-radius: 10px; background: none;
+    color: var(--muted); display: grid; place-items: center;
+  }
+  .mic.on { background: var(--danger); color: #fff; animation: pulse 1.2s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: .65; } }
+  .vmsg {
+    position: absolute; left: 0; right: 0; bottom: 100%; margin: 0 0 4px; padding: 10px 12px;
+    border: 1px solid var(--border); border-radius: 12px; background: var(--card);
+    font-size: 13px; line-height: 1.35;
+  }
 
   ul { list-style: none; margin: 0; padding: 0; }
   li.swipe {
@@ -297,7 +311,13 @@
 
     <form id="form" autocomplete="off">
       <button class="pick" type="button" id="pick" aria-label="Група для нової задачі" hidden><span id="pickIcon"></span><span class="pc">▾</span></button>
-      <input id="input" type="text" placeholder="Що потрібно зробити?" maxlength="200" aria-label="Нова задача">
+      <p class="vmsg" id="voiceMsg" role="status" hidden></p>
+      <div class="inwrap">
+        <input id="input" type="text" placeholder="Що потрібно зробити?" maxlength="200" aria-label="Нова задача">
+        <button class="mic" type="button" id="mic" aria-label="Диктувати голосом" aria-pressed="false" hidden>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3z"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+        </button>
+      </div>
       <button class="add" type="submit" aria-label="Додати">
         <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
       </button>
@@ -938,6 +958,7 @@
 
   $('form').addEventListener('submit', (e) => {
     e.preventDefault();
+    if (rec) rec.stop();
     const text = $('input').value.trim();
     if (!text) return;
     const t = { id: uid(), text, done: false };
@@ -1019,6 +1040,65 @@
   bindBackdrop($('groupsDlg'));
   bindBackdrop($('taskDlg'));
   bindBackdrop($('pickDlg'));
+
+  const getSR = () => window.SpeechRecognition || window.webkitSpeechRecognition;
+  const VOICE_ERRORS = {
+    'not-allowed': 'Немає доступу до мікрофона. Дозвольте його в налаштуваннях телефона або скористайтеся мікрофоном на клавіатурі.',
+    'service-not-allowed': 'Розпізнавання мови недоступне в цьому режимі. Скористайтеся мікрофоном на клавіатурі.',
+    'no-speech': 'Нічого не почуто. Спробуйте ще раз.',
+    'audio-capture': 'Мікрофон не знайдено.',
+    'network': 'Для розпізнавання потрібен інтернет.',
+    'language-not-supported': 'Українська мова не підтримується. Скористайтеся мікрофоном на клавіатурі.',
+  };
+  let rec = null;
+  let voiceTimer = 0;
+
+  function showVoiceMsg(text) {
+    $('voiceMsg').textContent = text;
+    $('voiceMsg').hidden = false;
+    clearTimeout(voiceTimer);
+    voiceTimer = setTimeout(() => { $('voiceMsg').hidden = true; }, 7000);
+  }
+
+  function setListening(on) {
+    $('mic').classList.toggle('on', on);
+    $('mic').setAttribute('aria-pressed', on);
+    $('mic').setAttribute('aria-label', on ? 'Зупинити запис' : 'Диктувати голосом');
+    if (on) $('input').placeholder = 'Слухаю…';
+    else renderHeader();
+  }
+
+  function startVoice() {
+    const SR = getSR();
+    if (!SR) return;
+    $('voiceMsg').hidden = true;
+    let base = $('input').value.trim();
+    if (base) base += ' ';
+    const r = new SR();
+    r.lang = 'uk-UA';
+    r.interimResults = true;
+    r.continuous = false;
+    r.maxAlternatives = 1;
+    r.onresult = (e) => {
+      let text = '';
+      for (let i = 0; i < e.results.length; i++) text += e.results[i][0].transcript;
+      const full = (base + text.trim()).slice(0, 200);
+      $('input').value = full.charAt(0).toUpperCase() + full.slice(1);
+    };
+    r.onerror = (e) => showVoiceMsg(VOICE_ERRORS[e.error] || 'Не вдалося розпізнати мовлення. Спробуйте ще раз.');
+    r.onend = () => { if (rec === r) rec = null; setListening(false); };
+    rec = r;
+    try {
+      r.start();
+      setListening(true);
+    } catch {
+      rec = null;
+      showVoiceMsg('Не вдалося запустити розпізнавання. Скористайтеся мікрофоном на клавіатурі.');
+    }
+  }
+
+  $('mic').onclick = () => { if (rec) rec.stop(); else startVoice(); };
+  if (getSR()) $('mic').hidden = false;
 
   const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
   if (document.fullscreenEnabled && !standalone) {
