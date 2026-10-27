@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>TODO</title>
+<meta name="theme-color" content="#4f46e5">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="TODO">
+<style>
+  :root {
+    --bg: #f5f5f9;
+    --card: #ffffff;
+    --text: #1c1c28;
+    --muted: #8a8aa0;
+    --accent: #4f46e5;
+    --border: #e4e4ee;
+    --danger: #e5484d;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12121a;
+      --card: #1c1c28;
+      --text: #ececf4;
+      --muted: #7c7c93;
+      --border: #2c2c3c;
+    }
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    min-height: 100dvh;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+  main { max-width: 560px; margin: 0 auto; padding: 20px 16px 40px; }
+  h1 { margin: 8px 0 16px; font-size: 28px; }
+  form { display: flex; gap: 8px; margin-bottom: 16px; }
+  input[type="text"] {
+    flex: 1; min-width: 0;
+    padding: 14px; font-size: 16px;
+    border: 1px solid var(--border); border-radius: 12px;
+    background: var(--card); color: var(--text);
+  }
+  input[type="text"]:focus { outline: 2px solid var(--accent); border-color: transparent; }
+  button { font: inherit; cursor: pointer; }
+  .add {
+    padding: 0 20px; border: 0; border-radius: 12px;
+    background: var(--accent); color: #fff; font-weight: 600;
+  }
+  .filters { display: flex; gap: 6px; margin-bottom: 12px; }
+  .filters button {
+    flex: 1; padding: 8px; border: 1px solid var(--border); border-radius: 10px;
+    background: var(--card); color: var(--muted);
+  }
+  .filters button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  li {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 14px; background: var(--card);
+    border: 1px solid var(--border); border-radius: 12px;
+  }
+  .check {
+    flex: none; width: 26px; height: 26px; border-radius: 50%;
+    border: 2px solid var(--muted); background: transparent; color: #fff;
+    display: grid; place-items: center; padding: 0; font-size: 15px; line-height: 1;
+  }
+  li.done .check { background: var(--accent); border-color: var(--accent); }
+  li .text { flex: 1; word-break: break-word; }
+  li.done .text { color: var(--muted); text-decoration: line-through; }
+  .del { flex: none; border: 0; background: none; color: var(--muted); font-size: 22px; padding: 0 4px; }
+  .del:active { color: var(--danger); }
+  .empty { text-align: center; color: var(--muted); padding: 32px 0; }
+  footer { display: flex; justify-content: space-between; align-items: center; margin-top: 16px; color: var(--muted); font-size: 14px; }
+  .clear { border: 0; background: none; color: var(--danger); font-size: 14px; }
+  .clear[hidden] { display: none; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Мої задачі</h1>
+
+  <form id="form" autocomplete="off">
+    <input id="input" type="text" placeholder="Що потрібно зробити?" maxlength="200" aria-label="Нова задача">
+    <button class="add" type="submit">Додати</button>
+  </form>
+
+  <div class="filters" id="filters">
+    <button data-filter="all" class="active">Усі</button>
+    <button data-filter="active">Активні</button>
+    <button data-filter="done">Виконані</button>
+  </div>
+
+  <ul id="list"></ul>
+  <p class="empty" id="empty" hidden></p>
+
+  <footer>
+    <span id="counter"></span>
+    <button class="clear" id="clear" hidden>Очистити виконані</button>
+  </footer>
+</main>
+
+<script>
+  const KEY = 'todo.items.v1';
+  const $ = (id) => document.getElementById(id);
+  let items = load();
+  let filter = 'all';
+
+  function load() {
+    try { return JSON.parse(localStorage.getItem(KEY)) || []; }
+    catch { return []; }
+  }
+  function save() {
+    try { localStorage.setItem(KEY, JSON.stringify(items)); } catch {}
+  }
+
+  function render() {
+    const list = $('list');
+    list.textContent = '';
+    const visible = items.filter((t) =>
+      filter === 'all' || (filter === 'done') === t.done);
+
+    for (const t of visible) {
+      const li = document.createElement('li');
+      li.className = t.done ? 'done' : '';
+
+      const check = document.createElement('button');
+      check.className = 'check';
+      check.setAttribute('aria-label', 'Позначити виконаною');
+      check.textContent = t.done ? '✓' : '';
+      check.onclick = () => { t.done = !t.done; save(); render(); };
+
+      const text = document.createElement('span');
+      text.className = 'text';
+      text.textContent = t.text;
+      text.onclick = check.onclick;
+
+      const del = document.createElement('button');
+      del.className = 'del';
+      del.setAttribute('aria-label', 'Видалити');
+      del.textContent = '×';
+      del.onclick = () => { items = items.filter((x) => x.id !== t.id); save(); render(); };
+
+      li.append(check, text, del);
+      list.append(li);
+    }
+
+    const empty = $('empty');
+    empty.hidden = visible.length > 0;
+    empty.textContent = items.length ? 'Тут нічого немає' : 'Поки що порожньо — додайте першу задачу';
+
+    const left = items.filter((t) => !t.done).length;
+    $('counter').textContent = `Залишилось: ${left}`;
+    $('clear').hidden = !items.some((t) => t.done);
+
+    for (const b of document.querySelectorAll('#filters button')) {
+      b.classList.toggle('active', b.dataset.filter === filter);
+    }
+  }
+
+  $('form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const text = $('input').value.trim();
+    if (!text) return;
+    items.unshift({ id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), text, done: false });
+    $('input').value = '';
+    save();
+    render();
+  });
+
+  $('filters').addEventListener('click', (e) => {
+    const f = e.target.dataset.filter;
+    if (f) { filter = f; render(); }
+  });
+
+  $('clear').onclick = () => { items = items.filter((t) => !t.done); save(); render(); };
+
+  render();
+
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+  }
+</script>
+</body>
+</html>
