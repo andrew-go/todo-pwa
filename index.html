@@ -148,6 +148,8 @@
   .gchev { flex: none; width: 14px; color: var(--muted); font-size: 12px; }
   .gicon { flex: none; font-size: 18px; }
   .gtext { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .gtag { flex: none; padding: 1px 7px; border: 1px solid var(--border); border-radius: 999px; color: var(--muted); font-size: 11px; font-weight: 500; }
+  .gname .gtag { vertical-align: 2px; }
   .gcnt { margin-left: auto; padding-left: 8px; color: var(--muted); font-weight: 400; font-size: 13px; }
   .gmore { flex: none; border: 0; background: none; color: var(--muted); font-size: 20px; line-height: 1; padding: 4px 8px; }
   .pick {
@@ -421,6 +423,8 @@
       <div class="icons" id="gicons"></div>
       <p class="slabel">Або свій емодзі</p>
       <input id="gcustom" type="text" maxlength="12" placeholder="🚀" aria-label="Свій емодзі">
+      <label class="vrow opt" style="margin-top:12px"><span>Не на сьогодні</span><input type="checkbox" id="gsomeday"></label>
+      <p class="note">Для того, що колись: рецепти, фільми, довгі плани. Такі задачі лишаються у списку, але не рахуються в прогресі дня й не з'являються у Фокусі.</p>
       <p class="err" id="gerr"></p>
       <div class="twrap">
         <button class="fbtn ghost" id="gcancel">Скасувати</button>
@@ -472,8 +476,8 @@
     { name: 'Магазин', icon: '🛒' },
     { name: 'Робота', icon: '💼' },
     { name: 'Служба', icon: '🎖️' },
-    { name: 'Рецепти', icon: '🍳' },
-    { name: 'Фільми', icon: '🎬' },
+    { name: 'Рецепти', icon: '🍳', someday: true },
+    { name: 'Фільми', icon: '🎬', someday: true },
   ];
   const $ = (id) => document.getElementById(id);
 
@@ -562,8 +566,19 @@
     })();
   }
 
+  // «На сьогодні» — усе, крім задач із груп «Не на сьогодні».
+  const forToday = (t) => { const g = t.group && groupById(t.group); return !(g && g.someday); };
+  const isToday = (ts) => !!ts && new Date(ts).toDateString() === new Date().toDateString();
+  // Прогрес дня: виконані сьогодні / (виконані сьогодні + ще не виконані на сьогодні).
+  function dayProgress() {
+    const left = active().filter(forToday).length;
+    const done = finished().filter((t) => forToday(t) && isToday(t.doneAt)).length;
+    return { done, left, total: done + left };
+  }
+
   function complete(t, x, y) {
     t.done = !t.done;
+    if (t.done) t.doneAt = Date.now(); else delete t.doneAt;
     if (t.done) { buzz(15); confetti(x, y); }
     save();
     render();
@@ -703,6 +718,7 @@
       part('gchev', open ? '▾' : '▸'),
       part('gicon', g ? g.icon : '📥'),
       part('gtext', g ? g.name : 'Без групи'),
+      ...(g && g.someday ? [part('gtag', 'колись')] : []),
       part('gcnt', count),
     );
     toggle.onclick = () => {
@@ -730,13 +746,13 @@
     $('pickIcon').textContent = ag ? ag.icon : '📥';
     $('input').placeholder = ag ? `Що додати в «${ag.name}»?` : 'Що потрібно зробити?';
 
-    const all = live();
-    const done = finished().length;
-    const ratio = all.length ? done / all.length : 0;
+    const { done, total } = dayProgress();
+    const ratio = total ? done / total : 0;
     $('bar').style.strokeDasharray = CIRC;
     $('bar').style.strokeDashoffset = CIRC * (1 - ratio);
     $('pct').textContent = Math.round(ratio * 100) + '%';
-    $('sub').textContent = all.length ? `${done} з ${all.length} виконано` : 'Задач ще немає';
+    $('sub').textContent = total ? `${done} з ${total} на сьогодні`
+      : live().length ? 'На сьогодні задач немає' : 'Задач ще немає';
     $('date').textContent = new Date().toLocaleDateString('uk-UA', { weekday: 'long', day: 'numeric', month: 'long' });
     const n = archived().length;
     $('segArch').textContent = n ? `Архів · ${n}` : 'Архів';
@@ -789,7 +805,7 @@
       const i = t.group ? groups.findIndex((g) => g.id === t.group) : -1;
       return i < 0 ? groups.length : i;
     };
-    return active()
+    return active().filter(forToday)
       .map((t, i) => ({ t, i }))
       .sort((a, b) => (a.t.later || 0) - (b.t.later || 0) || rank(a.t) - rank(b.t) || a.i - b.i)
       .map((x) => x.t);
@@ -799,14 +815,13 @@
   function renderFocus() {
     const todo = focusQueue();
     const fcard = $('fcard');
-    const total = live().length;
-    const done = total - todo.length;
+    const { done, total } = dayProgress();
     $('fbar').style.width = (total ? (done / total) * 100 : 0) + '%';
     fcard.textContent = '';
     fcard.className = 'fcard';
 
     if (!todo.length) {
-      $('fcount').textContent = total ? 'Усе зроблено' : 'Задач ще немає';
+      $('fcount').textContent = total ? 'Усе на сьогодні зроблено' : 'Задач на сьогодні немає';
       $('factions').hidden = true;
       const box = document.createElement('div');
       box.className = 'fall';
@@ -814,7 +829,7 @@
       big.className = 'big';
       big.textContent = total ? '✓' : '＋';
       const p = document.createElement('p');
-      p.textContent = total ? 'Чудова робота! Список порожній.' : 'Додайте задачі у вкладці «Список».';
+      p.textContent = total ? 'Чудова робота! На сьогодні все.' : 'Додайте задачі у вкладці «Список».';
       box.append(big, p);
       fcard.append(box);
       lastFocusId = null;
@@ -913,6 +928,7 @@
   function startEdit(g) {
     gedit = g ? { id: g.id, name: g.name, icon: g.icon } : { id: null, name: '', icon: '⭐' };
     $('gname').value = gedit.name;
+    $('gsomeday').checked = !!(g && g.someday);
     $('gcustom').value = '';
     $('gerr').textContent = '';
     renderGroups();
@@ -948,6 +964,7 @@
       const name = document.createElement('span');
       name.className = 'gname';
       name.textContent = g.name;
+      if (g.someday) { const tag = document.createElement('span'); tag.className = 'gtag'; tag.textContent = 'колись'; name.append(' ', tag); }
       const i = groups.indexOf(g);
       const move = (dir) => {
         const j = i + dir;
@@ -984,7 +1001,11 @@
       const b = document.createElement('button');
       b.className = 'chip';
       b.textContent = `${p.icon} ${p.name}`;
-      b.onclick = () => { groups.push({ id: uid(), name: p.name, icon: p.icon }); saveGroups(); render(); renderGroups(); };
+      b.onclick = () => {
+        const g = { id: uid(), name: p.name, icon: p.icon };
+        if (p.someday) g.someday = true;
+        groups.push(g); saveGroups(); render(); renderGroups();
+      };
       box.append(b);
     }
   }
@@ -993,12 +1014,11 @@
     const name = $('gname').value.trim();
     if (!name) { $('gerr').textContent = 'Введіть назву групи'; return; }
     gedit.name = name;
-    if (gedit.id) {
-      const g = groupById(gedit.id);
-      if (g) { g.name = gedit.name; g.icon = gedit.icon; }
-    } else {
-      groups.push({ id: uid(), name: gedit.name, icon: gedit.icon });
-    }
+    const someday = $('gsomeday').checked;
+    let g = gedit.id ? groupById(gedit.id) : null;
+    if (g) { g.name = gedit.name; g.icon = gedit.icon; }
+    else if (!gedit.id) { g = { id: uid(), name: gedit.name, icon: gedit.icon }; groups.push(g); }
+    if (g) { if (someday) g.someday = true; else delete g.someday; }
     saveGroups();
     gedit = null;
     render();
